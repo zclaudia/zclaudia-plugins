@@ -1,0 +1,84 @@
+{
+  "id": "com.zclaudia.claude",
+  "name": "Claude Agent",
+  "version": "0.1.0",
+  "description": "Run Claude as a zclaudia agent runtime via the Claude Agent SDK.",
+  "main": "dist/main.js",
+  "executionMode": "main",
+  "platform": "desktop",
+  "engines": { "claudia": "*" },
+  "permissions": ["provider.register", "provider.call", "network.fetch"],
+  "contributes": {
+    "agentRuntimes": [
+      {
+        "type": "claude",
+        "label": "Claude",
+        "model": { "kind": "none", "multimodalFallback": false, "thinkingLevel": "auto" },
+        "hasCliPath": true,
+        "capabilities": {
+          "tools": "native-readonly",
+          "providers": "external",
+          "skills": "external"
+        },
+        "authNote": "Claude uses the Claude Agent SDK runtime. MCP servers and skills come from ~/.claude; built-in tool sets are not injected.",
+        "manifest": {
+          "id": "claude",
+          "name": "Claude",
+          "version": "1.0.0",
+          "apiVersion": "pcp/v1",
+          "providerType": "claude",
+          "runtime": "cli",
+          "capabilities": [
+            { "id": "chat.stream", "supported": true, "mode": "native", "reliability": "strict" },
+            { "id": "tool.call", "supported": true, "mode": "native", "reliability": "strict" },
+            { "id": "tool.inject", "supported": false, "degradation": "fallback_to_text" },
+            { "id": "interaction.form", "supported": false, "degradation": "fallback_to_text" },
+            {
+              "id": "interaction.approval",
+              "supported": true,
+              "mode": "bridged",
+              "reliability": "best_effort"
+            },
+            { "id": "interaction.todo", "supported": false, "degradation": "fallback_to_text" },
+            { "id": "input.image", "supported": false, "degradation": "fallback_to_notice" },
+            { "id": "input.text_file", "supported": false, "degradation": "fallback_to_notice" },
+            { "id": "input.binary_file", "supported": false, "degradation": "fallback_to_notice" },
+            {
+              "id": "permission.mode",
+              "supported": true,
+              "mode": "native",
+              "reliability": "strict"
+            },
+            { "id": "session.abort", "supported": true, "mode": "native", "reliability": "strict" },
+            { "id": "session.steer", "supported": false, "degradation": "fallback_to_text" },
+            {
+              "id": "session.background_task",
+              "supported": false,
+              "degradation": "fallback_to_text"
+            }
+          ],
+          "permissionModeMap": {
+            "supervised": "default",
+            "auto_edit": "acceptEdits",
+            "autonomous": "bypassPermissions",
+            "plan_only": "plan"
+          }
+        },
+        "policy": {
+          "nativeInteractionTools": ["enter_plan_mode", "exit_plan_mode"],
+          "modeSwitchSessionPolicy": "preserve",
+          "sessionCwdPolicy": "requested",
+          "escalateAlwaysTools": ["ExitPlanMode"]
+        }
+      }
+    ],
+    "agentProfiles": [
+      {
+        "id": "claude-default",
+        "name": "Claude",
+        "description": "Claude Agent SDK runtime",
+        "runtimeType": "claude"
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "zclaudia-plugins",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Official agent runtime plugins for ZClaudia.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "clean": "pnpm -r run clean && rm -rf node_modules",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "lint:boundaries": "node scripts/check-package-boundaries.mjs",
+    "format": "prettier --write \"**/*.{ts,js,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,mjs,json,md,yml,yaml}\"",
+    "pack:check": "pnpm -r run pack:check",
+    "check": "pnpm lint:boundaries && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm pack:check"
+  },
+  "engines": {
+    "node": ">=22.19.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "prettier": "^3.8.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
+  }
+}

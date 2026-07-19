@@ -1,0 +1,90 @@
+{
+  "id": "com.zclaudia.cursor",
+  "name": "Cursor Agent",
+  "version": "0.1.0",
+  "description": "Run Cursor Agent CLI (cursor-agent) as a zclaudia agent runtime.",
+  "main": "dist/main.js",
+  "executionMode": "main",
+  "platform": "desktop",
+  "engines": { "claudia": "*" },
+  "permissions": ["provider.register", "provider.call", "network.fetch"],
+  "contributes": {
+    "agentRuntimes": [
+      {
+        "type": "cursor",
+        "label": "Cursor",
+        "model": { "kind": "none", "multimodalFallback": false, "thinkingLevel": "auto" },
+        "hasCliPath": true,
+        "capabilities": {
+          "tools": "native-readonly",
+          "providers": "external",
+          "skills": "external"
+        },
+        "authNote": "Cursor uses the local cursor-agent CLI. MCP bridge tools are injected into .cursor/mcp.json for this project; Cursor-native MCP and skills stay outside zclaudia profile tools.",
+        "manifest": {
+          "id": "cursor",
+          "name": "Cursor",
+          "version": "1.0.0",
+          "apiVersion": "pcp/v1",
+          "providerType": "cursor",
+          "runtime": "cli",
+          "capabilities": [
+            {
+              "id": "chat.stream",
+              "supported": true,
+              "mode": "native",
+              "reliability": "best_effort"
+            },
+            {
+              "id": "tool.call",
+              "supported": true,
+              "mode": "native",
+              "reliability": "best_effort"
+            },
+            {
+              "id": "tool.inject",
+              "supported": true,
+              "mode": "bridged",
+              "reliability": "best_effort",
+              "notes": "Via .cursor/mcp.json injection"
+            },
+            { "id": "interaction.form", "supported": false, "degradation": "fallback_to_text" },
+            { "id": "interaction.approval", "supported": false, "degradation": "fallback_to_text" },
+            { "id": "interaction.todo", "supported": false, "degradation": "fallback_to_text" },
+            { "id": "input.image", "supported": false, "degradation": "fallback_to_notice" },
+            { "id": "input.text_file", "supported": false, "degradation": "fallback_to_notice" },
+            { "id": "input.binary_file", "supported": false, "degradation": "fallback_to_notice" },
+            {
+              "id": "permission.mode",
+              "supported": true,
+              "mode": "native",
+              "reliability": "strict"
+            },
+            { "id": "session.abort", "supported": true, "mode": "native", "reliability": "strict" },
+            { "id": "session.steer", "supported": false, "degradation": "fallback_to_text" },
+            {
+              "id": "session.background_task",
+              "supported": false,
+              "degradation": "fallback_to_text"
+            }
+          ],
+          "permissionModeMap": {
+            "supervised": "default",
+            "plan_only": "plan"
+          }
+        },
+        "policy": {
+          "modeSwitchSessionPolicy": "preserve"
+        }
+      }
+    ],
+    "agentProfiles": [
+      {
+        "id": "cursor-default",
+        "name": "Cursor",
+        "description": "Cursor Agent CLI runtime",
+        "runtimeType": "cursor"
+      }
+    ]
+  }
+}
