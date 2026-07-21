@@ -1,20 +1,33 @@
-name: Publish plugin to npm
+name: Publish plugin archive
+run-name: Publish ${{ inputs.plugin }} plugins at v${{ inputs.version }}
 
 on:
-  release:
-    types:
-      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Plugin version, for example 0.1.0
+        required: true
+        type: string
+      plugin:
+        description: Publish all plugins or one plugin
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - claude
+          - codex
+          - cursor
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write
 
 concurrency:
-  group: npm-publish-${{ github.ref }}
+  group: plugin-archive-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
-  publish:
+  publish-archive:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,14 +40,55 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
+          cache: pnpm
 
-      - name: Resolve and verify release
-        id: release
-        run: node scripts/resolve-release.mjs "$GITHUB_REF_NAME"
+      - name: Resolve and verify requested releases
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SELECTED_PLUGIN: ${{ inputs.plugin }}
+        run: |
+          selected_plugins="$SELECTED_PLUGIN"
+          if [ "$selected_plugins" = "all" ]; then
+            selected_plugins="claude codex cursor"
+          fi
+          for plugin_name in $selected_plugins; do
+            node scripts/resolve-release.mjs "${plugin_name}-v${RELEASE_VERSION}"
+          done
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint:boundaries
-      - run: npm publish --access public
-        working-directory: ${{ steps.release.outputs.package-directory }}
+      - run: pnpm check
+
+      - name: Package requested plugins
+        env:
+          SELECTED_PLUGIN: ${{ inputs.plugin }}
+        run: |
+          if [ "$SELECTED_PLUGIN" = "all" ]; then
+            pnpm pack:plugins --skip-checks
+          else
+            pnpm pack:plugin "$SELECTED_PLUGIN" --skip-checks
+          fi
+
+      - name: Verify and publish requested releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          SELECTED_PLUGIN: ${{ inputs.plugin }}
+        run: |
+          selected_plugins="$SELECTED_PLUGIN"
+          if [ "$selected_plugins" = "all" ]; then
+            selected_plugins="claude codex cursor"
+          fi
+          for plugin_name in $selected_plugins; do
+            release_tag="${plugin_name}-v${RELEASE_VERSION}"
+            artifact_name="zclaudia-agent-${plugin_name}-${RELEASE_VERSION}-any.zplugin"
+            pnpm verify:release "$release_tag"
+            gh release view "$release_tag" >/dev/null 2>&1 || \
+              gh release create "$release_tag" \
+                --target "$GITHUB_SHA" \
+                --generate-notes \
+                --title "$release_tag"
+            gh release upload "$release_tag" \
+              "artifacts/release/$artifact_name" \
+              "artifacts/release/$artifact_name.sha256" \
+              "artifacts/release/$artifact_name.metadata.json"
+          done

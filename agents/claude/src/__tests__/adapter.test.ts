@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ClaudeAgentAdapter } from '../adapter.js';
 
-const { queryMock, loadClaudeAgentConfigMock } = vi.hoisted(() => ({
+const { queryMock, loadClaudeAgentConfigMock, inspectClaudeCliMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
   loadClaudeAgentConfigMock: vi.fn(() => ({ mcpServers: {}, plugins: [] })),
+  inspectClaudeCliMock: vi.fn(() => ({ status: 'supported', version: '2.1.141' })),
 }));
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
@@ -12,6 +13,11 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 
 vi.mock('../config.js', () => ({
   loadClaudeAgentConfig: loadClaudeAgentConfigMock,
+}));
+
+vi.mock('../resolve-cli.js', () => ({
+  inspectClaudeCli: inspectClaudeCliMock,
+  resolveClaudeCliFromPath: vi.fn(() => '/fixture/claude'),
 }));
 
 async function* emptyStream() {

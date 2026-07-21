@@ -33,6 +33,7 @@ const output = [
   `package-name=${packageJson.name}`,
   `package-directory=${packageDirectory}`,
   `version=${version}`,
+  `artifact-name=zclaudia-agent-${pluginName}-${version}-any.zplugin`,
 ].join('\n');
 
 if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${output}\n`);

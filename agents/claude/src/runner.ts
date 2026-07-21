@@ -7,7 +7,7 @@ import type {
   SdkPluginConfig,
 } from '@anthropic-ai/claude-agent-sdk';
 import type { ProviderRuntimeEvent, SystemInfo } from '@zclaudia/plugin-sdk/providers';
-import { resolveClaudeCliFromPath } from './resolve-cli.js';
+import { inspectClaudeCli, resolveClaudeCliFromPath } from './resolve-cli.js';
 
 export interface ClaudeAgentRunOptions {
   cwd: string;
@@ -49,15 +49,16 @@ export async function* runClaudeAgent(
     };
   }
   const effectiveEnv = options.env ? { ...process.env, ...options.env } : process.env;
-  if (options.cliPath) {
-    // Explicit override (profile/options) always wins.
-    sdkOptions.pathToClaudeCodeExecutable = options.cliPath;
-  } else {
-    // Otherwise prefer a `claude` found on PATH; fall back to the SDK-bundled
-    // binary when none is installed (leave pathToClaudeCodeExecutable unset).
-    const pathCli = resolveClaudeCliFromPath(effectiveEnv.PATH);
-    if (pathCli) sdkOptions.pathToClaudeCodeExecutable = pathCli;
+  const cliPath = options.cliPath ?? resolveClaudeCliFromPath(effectiveEnv.PATH);
+  if (!cliPath) {
+    throw new Error(
+      'Claude Code CLI is required. Install Claude Code and ensure `claude` is on PATH, or configure its executable path.'
+    );
   }
+  const compatibility = inspectClaudeCli(cliPath, { env: effectiveEnv });
+  if (compatibility.status === 'blocked') throw new Error(compatibility.message);
+  if (compatibility.status === 'warning') console.warn(compatibility.message);
+  sdkOptions.pathToClaudeCodeExecutable = cliPath;
   if (options.env) sdkOptions.env = effectiveEnv;
   if (options.canUseTool) sdkOptions.canUseTool = options.canUseTool;
   if (options.mcpServers && Object.keys(options.mcpServers).length > 0) {

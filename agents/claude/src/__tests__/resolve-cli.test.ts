@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-const { resolveClaudeCliFromPath } = await import('../resolve-cli.js');
+const { inspectClaudeCli, parseClaudeCliVersion, resolveClaudeCliFromPath } =
+  await import('../resolve-cli.js');
 
 /** Build a fake `exists` predicate that returns true only for the given set of paths. */
 function existsFor(paths: string[]): (p: string) => boolean {
@@ -54,5 +55,46 @@ describe('resolveClaudeCliFromPath', () => {
       exists: existsFor(['/usr/local/bin/claude']),
     });
     expect(result).toBe('/usr/local/bin/claude');
+  });
+});
+
+describe('inspectClaudeCli', () => {
+  it('accepts a CLI in the tested range using a deterministic spawn fixture', () => {
+    expect(
+      inspectClaudeCli('/fixture/claude', {
+        run: () => ({ status: 0, stdout: '2.1.141 (Claude Code)' }),
+      })
+    ).toEqual({ status: 'supported', version: '2.1.141' });
+  });
+
+  it('blocks a CLI below the supported minimum', () => {
+    expect(
+      inspectClaudeCli('/fixture/claude', {
+        run: () => ({ status: 0, stdout: 'Claude Code 2.1.139' }),
+      })
+    ).toMatchObject({ status: 'blocked', version: '2.1.139' });
+  });
+
+  it('warns for a CLI above the tested range', () => {
+    expect(
+      inspectClaudeCli('/fixture/claude', {
+        run: () => ({ status: 0, stdout: '2.2.0' }),
+      })
+    ).toMatchObject({ status: 'warning', version: '2.2.0' });
+  });
+
+  it('rejects an unrecognized version response', () => {
+    expect(() =>
+      inspectClaudeCli('/fixture/claude', {
+        run: () => ({ status: 0, stdout: 'unknown' }),
+      })
+    ).toThrow('unrecognized version');
+  });
+});
+
+describe('parseClaudeCliVersion', () => {
+  it('extracts versions from common Claude Code output', () => {
+    expect(parseClaudeCliVersion('2.1.141 (Claude Code)')).toBe('2.1.141');
+    expect(parseClaudeCliVersion('Claude Code 2.1.141')).toBe('2.1.141');
   });
 });

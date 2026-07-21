@@ -8,13 +8,16 @@
   "scripts": {
     "build": "pnpm -r run build",
     "clean": "pnpm -r run clean && rm -rf node_modules",
-    "test": "pnpm -r run test",
+    "test": "vitest run scripts && pnpm -r run test",
     "typecheck": "pnpm -r run typecheck",
     "lint:boundaries": "node scripts/check-package-boundaries.mjs",
     "format": "prettier --write \"**/*.{ts,js,mjs,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,js,mjs,json,md,yml,yaml}\"",
-    "pack:check": "pnpm -r run pack:check",
-    "check": "pnpm lint:boundaries && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm pack:check"
+    "pack:plugin": "node scripts/pack-plugin.mjs",
+    "pack:plugins": "node scripts/pack-plugin.mjs all",
+    "validate:plugin": "node scripts/validate-plugin.mjs",
+    "verify:release": "node scripts/verify-release.mjs",
+    "check": "pnpm lint:boundaries && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },
   "engines": {
     "node": ">=22.19.0",
