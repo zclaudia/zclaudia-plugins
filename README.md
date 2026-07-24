@@ -31,6 +31,19 @@ pnpm --filter @zclaudia/plugin-codex build
 After building, add the absolute package directory (for example
 `/path/to/zclaudia-plugins/agents/codex`) to ZClaudia's plugin directories and rediscover plugins.
 
+Agent plugins can also be loaded and exercised without starting ZClaudia:
+
+```bash
+pnpm agent:dev inspect agents/codex
+pnpm agent:dev run agents/codex --cwd /path/to/project --input "Summarize this repository"
+pnpm agent:dev chat agents/claude --cwd /path/to/project --bridge debug
+```
+
+The standalone host uses the same `plugin.json` entrypoint and `ExternalAgentAdapter` contract as
+ZClaudia. It supports raw/JSONL traces, resumable provider sessions, terminal permission prompts,
+abort handling, and an optional authenticated MCP debug bridge. See
+[Standalone Agent Runtime](docs/standalone-agent-runtime.md).
+
 ## Distribution
 
 The end-user distribution format is a versioned `.zplugin` archive published through GitHub
@@ -55,6 +68,11 @@ pnpm validate:plugin path/to/plugin-or-archive
 
 See [Plugin Distribution Design](docs/plugin-distribution.md) for the artifact format, Claude CLI
 strategy, release workflow, catalog schema, security requirements, and implementation phases.
+
+The reusable host packages now live in the independent
+[`zclaudia-agent-runtime`](https://github.com/zclaudia/zclaudia-agent-runtime) and
+[`zclaudia-agent-tool-bridge`](https://github.com/zclaudia/zclaudia-agent-tool-bridge)
+repositories. This repository consumes their public npm releases through semver dependencies.
 
 ## Release workflow
 

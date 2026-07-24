@@ -1,5 +1,6 @@
 import type { PermissionCallback, ProviderRuntimeEvent } from '@zclaudia/plugin-sdk/providers';
 import type { ProviderToolBridgeEntry } from '@zclaudia/plugin-sdk/providers';
+import { createHash } from 'node:crypto';
 import { CodexAppServerClient } from './app-server-client.js';
 import {
   buildEnv,
@@ -55,11 +56,12 @@ export function getCacheKey(
   env: Record<string, string>,
   configSignature = ''
 ): string {
-  const envSignature = JSON.stringify(
+  const envPayload = JSON.stringify(
     Object.keys(env)
       .sort()
       .map(key => [key, env[key]])
   );
+  const envSignature = createHash('sha256').update(envPayload).digest('hex');
   return `${options.cliPath || '__default__'}::${configSignature}::${envSignature}`;
 }
 
@@ -73,7 +75,7 @@ export function getOrCreateAppServerClient(options: CodexRunOptions): CodexAppSe
   let client = appServerClients.get(key);
   if (!client) {
     client = new CodexAppServerClient(options.cliPath, env, extraArgs, {
-      processCwd: configDir,
+      processCwd: options.bridge ? configDir : options.cwd,
     });
     appServerClients.set(key, client);
   } else {

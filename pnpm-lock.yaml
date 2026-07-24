@@ -6,6 +6,13 @@ settings:
 
 importers:
   .:
+    dependencies:
+      '@zclaudia/agent-runtime':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@zclaudia/agent-tool-bridge':
+        specifier: ^0.1.0
+        version: 0.1.0
     devDependencies:
       '@types/node':
         specifier: ^22.13.10
@@ -40,6 +47,28 @@ importers:
       '@zclaudia/plugin-sdk':
         specifier: ^0.1.0
         version: 0.1.0
+
+  packages/agent-dev:
+    dependencies:
+      '@zclaudia/agent-runtime':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@zclaudia/agent-tool-bridge':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@zclaudia/plugin-sdk':
+        specifier: ^0.1.0
+        version: 0.1.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.10
+        version: 22.20.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.10(@types/node@22.20.1)(vite@8.1.5(@types/node@22.20.1))
 
 packages:
   '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.2.141':
@@ -420,6 +449,21 @@ packages:
       {
         integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==,
       }
+
+  '@zclaudia/agent-runtime@0.1.0':
+    resolution:
+      {
+        integrity: sha512-TywE3E7ETcYaFbsJqNVLnHUNuVvnopcpNiDnGAxQteKucRHI5YvczPrNlWGrenOHsACzli6avI2RW5+NP0AzUA==,
+      }
+    engines: { node: '>=22.19.0' }
+
+  '@zclaudia/agent-tool-bridge@0.1.0':
+    resolution:
+      {
+        integrity: sha512-/MP2qW2t2Rpf7fjbiV1E/ek3Gt4UivCcabfzx2yRVwetbx4WlfjftpavWSQAi62cW5PTAFhKiQ3tDFiRTmeS1g==,
+      }
+    engines: { node: '>=22.19.0' }
+    hasBin: true
 
   '@zclaudia/plugin-sdk@0.1.0':
     resolution:
@@ -1685,6 +1729,14 @@ snapshots:
       '@vitest/pretty-format': 4.1.10
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+
+  '@zclaudia/agent-runtime@0.1.0':
+    dependencies:
+      '@zclaudia/plugin-sdk': 0.1.0
+
+  '@zclaudia/agent-tool-bridge@0.1.0':
+    dependencies:
+      '@zclaudia/plugin-sdk': 0.1.0
 
   '@zclaudia/plugin-sdk@0.1.0': {}
 

@@ -1,0 +1,38 @@
+{
+  "id": "com.zclaudia.fixture",
+  "name": "Fixture Agent",
+  "version": "0.1.0",
+  "description": "Standalone loader fixture.",
+  "main": "main.mjs",
+  "platform": "desktop",
+  "executionMode": "main",
+  "permissions": ["provider.register"],
+  "contributes": {
+    "agentRuntimes": [
+      {
+        "type": "fixture",
+        "label": "Fixture",
+        "model": {
+          "kind": "none",
+          "multimodalFallback": false,
+          "thinkingLevel": "off"
+        },
+        "hasCliPath": false,
+        "capabilities": {
+          "tools": "unsupported",
+          "providers": "unsupported",
+          "skills": "unsupported"
+        },
+        "manifest": {
+          "id": "fixture",
+          "name": "Fixture",
+          "version": "1.0.0",
+          "apiVersion": "pcp/v1",
+          "providerType": "fixture",
+          "runtime": "sdk",
+          "capabilities": []
+        }
+      }
+    ]
+  }
+}

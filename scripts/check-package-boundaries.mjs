@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const agentsRoot = path.join(repoRoot, 'agents');
+const packagesRoot = path.join(repoRoot, 'packages');
 const failures = [];
 
 function walk(directory) {
@@ -54,6 +55,33 @@ for (const pluginName of readdirSync(agentsRoot).sort()) {
     }
     if (/"[^"]+"\s*:\s*"workspace:/.test(content)) {
       failures.push(`${relativePath}: workspace: dependencies cannot be published independently.`);
+    }
+  }
+}
+
+for (const packageDirectory of readdirSync(packagesRoot).sort()) {
+  const packageRoot = path.join(packagesRoot, packageDirectory);
+  if (!statSync(packageRoot).isDirectory()) continue;
+
+  const packagePath = path.join(packageRoot, 'package.json');
+  if (!existsSync(packagePath)) {
+    failures.push(`packages/${packageDirectory}: package.json is required.`);
+    continue;
+  }
+
+  const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
+  if (!packageJson.name?.startsWith('@zclaudia/')) {
+    failures.push(`packages/${packageDirectory}/package.json: package name must use @zclaudia/.`);
+  }
+
+  for (const file of walk(packageRoot)) {
+    const relativePath = path.relative(repoRoot, file).replaceAll(path.sep, '/');
+    const content = readFileSync(file, 'utf8');
+    if (/['"]@zclaudia\/shared(?:\/[^'"]*)?['"]/.test(content)) {
+      failures.push(`${relativePath}: import public contracts from @zclaudia/plugin-sdk.`);
+    }
+    if (packageJson.private !== true && /"[^"]+"\s*:\s*"workspace:/.test(content)) {
+      failures.push(`${relativePath}: publishable packages cannot use workspace: dependencies.`);
     }
   }
 }

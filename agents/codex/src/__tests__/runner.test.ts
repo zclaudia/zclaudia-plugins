@@ -43,6 +43,7 @@ vi.mock('../config.js', async importOriginal => {
 import {
   abortCodexSession,
   destroyAllCodexClients,
+  getCacheKey,
   resetCodexRunnerForTests,
   runCodexAppServer,
   setCodexSessionMode,
@@ -60,6 +61,23 @@ describe('runner', () => {
     mockClient.runTurn.mockClear();
     mockClient.interruptTurn.mockClear();
     mockClient.updateExtraArgs.mockClear();
+  });
+
+  it('hashes environment values in cache keys instead of exposing secrets', () => {
+    const key = getCacheKey(
+      { cwd: '/tmp/project', cliPath: '/tmp/codex' },
+      { API_TOKEN: 'super-secret-value', PATH: '/usr/bin' },
+      'config-signature'
+    );
+    const changedKey = getCacheKey(
+      { cwd: '/tmp/project', cliPath: '/tmp/codex' },
+      { API_TOKEN: 'different-secret-value', PATH: '/usr/bin' },
+      'config-signature'
+    );
+
+    expect(key).not.toContain('super-secret-value');
+    expect(key).not.toContain('API_TOKEN');
+    expect(key).not.toBe(changedKey);
   });
 
   it('new run calls writeMcpConfig, startThread(cwd), and streams events', async () => {

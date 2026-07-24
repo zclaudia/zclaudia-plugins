@@ -17,13 +17,19 @@
     "pack:plugins": "node scripts/pack-plugin.mjs all",
     "validate:plugin": "node scripts/validate-plugin.mjs",
     "verify:release": "node scripts/verify-release.mjs",
-    "check": "pnpm lint:boundaries && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
+    "agent:dev": "pnpm -r run build && node packages/agent-dev/dist/cli.js",
+    "smoke:agent-runtime": "node scripts/smoke-agent-runtime.mjs",
+    "check": "pnpm lint:boundaries && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm smoke:agent-runtime"
   },
   "engines": {
     "node": ">=22.19.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@9.15.0",
+  "dependencies": {
+    "@zclaudia/agent-runtime": "^0.1.0",
+    "@zclaudia/agent-tool-bridge": "^0.1.0"
+  },
   "devDependencies": {
     "@types/node": "^22.13.10",
     "prettier": "^3.8.4",

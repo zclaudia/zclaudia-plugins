@@ -28,6 +28,7 @@ export async function* runCursor(
   options: CursorRunOptions
 ): AsyncGenerator<ProviderRuntimeEvent, void, void> {
   let promptText = input;
+  let cleanupMcpBridge: (() => void) | undefined;
 
   // Prepend systemPrompt to input
   if (options.systemPrompt) {
@@ -67,6 +68,8 @@ export async function* runCursor(
     const result = injectCursorMcpBridge(options.cwd, options.bridge);
     if (!result.ok) {
       console.error(`[Cursor SDK] Failed to inject MCP bridge: ${result.reason}`);
+    } else if (result.injected) {
+      cleanupMcpBridge = result.cleanup;
     }
   }
 
@@ -198,6 +201,7 @@ export async function* runCursor(
     if (currentSessionId) {
       activeProcesses.delete(currentSessionId);
     }
+    cleanupMcpBridge?.();
   }
 }
 

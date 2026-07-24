@@ -9,3 +9,4 @@ coverage/
 .env.*
 .idea/
 .vscode/
+.agent-dev/

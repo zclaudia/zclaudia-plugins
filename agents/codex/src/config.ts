@@ -136,9 +136,11 @@ function sanitizeInheritedProviderEnv(env: Record<string, string>): void {
 // ── MCP config via stable app data cwd ───────────────────────
 
 export function getCodexConfigDir(): string {
-  const dataDir = process.env.ZCLAUDIA_DATA_DIR
-    ? join(process.env.ZCLAUDIA_DATA_DIR)
-    : join(homedir(), '.zclaudia');
+  const dataDir = process.env.AGENT_RUNTIME_DATA_DIR
+    ? join(process.env.AGENT_RUNTIME_DATA_DIR)
+    : process.env.ZCLAUDIA_DATA_DIR
+      ? join(process.env.ZCLAUDIA_DATA_DIR)
+      : join(homedir(), '.zclaudia');
   return join(dataDir, 'codex-config');
 }
 
@@ -240,7 +242,9 @@ export function writeMcpConfig(bridge: ProviderToolBridgeEntry | null): {
   const configDir = getCodexConfigDir();
   try {
     mkdirSync(configDir, { recursive: true });
-    ensureCodexProjectTrusted(configDir);
+    // A bridge-less standalone run has no generated project config to load,
+    // so it must not modify the user's global Codex trust settings.
+    if (bridge) ensureCodexProjectTrusted(configDir);
     const configToml = buildMcpConfigToml(bridge);
 
     if (configToml !== lastWrittenConfig) {

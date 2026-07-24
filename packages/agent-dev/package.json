@@ -1,0 +1,31 @@
+{
+  "name": "@zclaudia/agent-dev",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone CLI host for developing ZClaudia agent plugins.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "agent-dev": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist coverage",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@zclaudia/agent-runtime": "^0.1.0",
+    "@zclaudia/agent-tool-bridge": "^0.1.0",
+    "@zclaudia/plugin-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
+  }
+}

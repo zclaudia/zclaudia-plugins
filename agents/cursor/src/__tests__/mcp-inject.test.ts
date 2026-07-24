@@ -23,7 +23,7 @@ describe('injectCursorMcpBridge', () => {
       name: 'claudia-plugins',
       config: { command: 'node', args: ['bridge.js'] },
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toMatchObject({ ok: true, injected: true });
     const raw = JSON.parse(readFileSync(path.join(cwd, '.cursor', 'mcp.json'), 'utf8'));
     expect(raw.mcpServers['claudia-plugins']).toEqual({
       command: 'node',
@@ -72,7 +72,35 @@ describe('injectCursorMcpBridge', () => {
       name: 'claudia-plugins',
       config: { command: 'node', args: ['bridge.js'] },
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toMatchObject({ ok: true, injected: true });
     expect(existsSync(path.join(cwd, '.cursor', 'mcp.json'))).toBe(true);
+  });
+
+  it('removes a newly created bridge config during cleanup', () => {
+    const cwd = project();
+    const result = injectCursorMcpBridge(cwd, {
+      name: 'agent-dev-tools',
+      config: { command: 'node', args: ['bridge.js'] },
+    });
+    expect(result).toMatchObject({ ok: true, injected: true });
+    if (!result.ok) return;
+    expect(existsSync(path.join(cwd, '.cursor', 'mcp.json'))).toBe(true);
+    result.cleanup();
+    expect(existsSync(path.join(cwd, '.cursor', 'mcp.json'))).toBe(false);
+  });
+
+  it('restores an existing config during cleanup', () => {
+    const cwd = project();
+    const configPath = path.join(cwd, '.cursor', 'mcp.json');
+    mkdirSync(path.dirname(configPath), { recursive: true });
+    const original = `${JSON.stringify({ mcpServers: { docs: { command: 'docs' } } }, null, 2)}\n`;
+    writeFileSync(configPath, original);
+    const result = injectCursorMcpBridge(cwd, {
+      name: 'agent-dev-tools',
+      config: { command: 'node', args: ['bridge.js'] },
+    });
+    if (!result.ok) throw new Error(result.reason);
+    result.cleanup();
+    expect(readFileSync(configPath, 'utf8')).toBe(original);
   });
 });
