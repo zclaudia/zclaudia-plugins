@@ -3,11 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const tag = process.argv[2];
-const match = /^(claude|codex|cursor)-v(.+)$/.exec(tag ?? '');
+const match = /^([a-z0-9][a-z0-9-]*)-v(.+)$/.exec(tag ?? '');
 if (!match) {
-  throw new Error(
-    `Invalid release tag "${tag ?? ''}". Expected claude-v<version>, codex-v<version>, or cursor-v<version>.`
-  );
+  throw new Error(`Invalid release tag "${tag ?? ''}". Expected <runtime>-v<version>.`);
 }
 
 const [, pluginName, version] = match;

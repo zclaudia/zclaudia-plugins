@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { validatePlugin } from './plugin-validation.mjs';
 
 const tag = process.argv[2];
-const match = /^(claude|codex|cursor)-v(.+)$/.exec(tag ?? '');
+const match = /^([a-z0-9][a-z0-9-]*)-v(.+)$/.exec(tag ?? '');
 if (!match) {
-  console.error('Usage: node scripts/verify-release.mjs <claude|codex|cursor>-v<version>');
+  console.error('Usage: node scripts/verify-release.mjs <runtime>-v<version>');
   process.exit(2);
 }
 

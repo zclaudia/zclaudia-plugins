@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { runAdapterConformanceSuite } from '../../../../scripts/runtime-conformance.mjs';
 
 const runCodexAppServerMock = vi.fn(async function* (_input, _opts) {
   yield { type: 'init', sessionId: 't1' };
@@ -26,6 +27,21 @@ describe('CodexAgentAdapter', () => {
 
   it('registers type codex', () => {
     expect(new CodexAgentAdapter(async () => null).type).toBe('codex');
+  });
+
+  it('satisfies the shared normalized event-stream contract', async () => {
+    runCodexAppServerMock.mockImplementationOnce(async function* () {
+      yield { type: 'init', sessionId: 'codex-session' };
+      yield { type: 'assistant_delta', content: 'hello from Codex' };
+      yield { type: 'provider_turn_finished', isComplete: true };
+    });
+    const suite = await runAdapterConformanceSuite({
+      adapter: new CodexAgentAdapter(async () => null),
+      input: 'hello',
+      context: { cwd: '/tmp/project', claudiaSessionId: 'session-1', serverPort: 3100 },
+      onPermission: vi.fn(),
+    });
+    expect(suite.passed).toBe(true);
   });
 
   it('calls createToolBridge and passes bridge into runCodexAppServer', async () => {

@@ -1,6 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  RUNTIME_COMPATIBILITY_FILE,
+  validateRuntimeCompatibility,
+} from './runtime-compatibility.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const agentsRoot = path.join(repoRoot, 'agents');
@@ -24,8 +28,11 @@ for (const pluginName of readdirSync(agentsRoot).sort()) {
 
   const packagePath = path.join(pluginRoot, 'package.json');
   const manifestPath = path.join(pluginRoot, 'plugin.json');
-  if (!existsSync(packagePath) || !existsSync(manifestPath)) {
-    failures.push(`agents/${pluginName}: package.json and plugin.json are both required.`);
+  const compatibilityPath = path.join(pluginRoot, RUNTIME_COMPATIBILITY_FILE);
+  if (!existsSync(packagePath) || !existsSync(manifestPath) || !existsSync(compatibilityPath)) {
+    failures.push(
+      `agents/${pluginName}: package.json, plugin.json, and ${RUNTIME_COMPATIBILITY_FILE} are all required.`
+    );
     continue;
   }
 
@@ -44,6 +51,15 @@ for (const pluginName of readdirSync(agentsRoot).sort()) {
   if (packageJson.version !== manifest.version) {
     failures.push(
       `agents/${pluginName}: package version ${packageJson.version} does not match manifest version ${manifest.version}.`
+    );
+  }
+  try {
+    validateRuntimeCompatibility(JSON.parse(readFileSync(compatibilityPath, 'utf8')), pluginName);
+  } catch (error) {
+    failures.push(
+      `agents/${pluginName}/${RUNTIME_COMPATIBILITY_FILE}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 

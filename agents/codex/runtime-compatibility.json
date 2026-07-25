@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "runtime": "codex",
+  "executable": {
+    "command": "codex",
+    "versionArgs": ["--version"],
+    "versionPattern": "(?:^|\\s)(\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?)(?=\\s|$)"
+  },
+  "versionPolicy": {
+    "minimum": "0.144.1",
+    "testedMaximum": "0.144.1",
+    "knownIncompatible": []
+  },
+  "probe": {
+    "kind": "json-rpc",
+    "args": ["app-server", "--listen", "stdio://"]
+  },
+  "managedInstall": {
+    "recommendedVersion": "0.144.1",
+    "authProbe": {
+      "args": ["login", "status"],
+      "successExitCodes": [0],
+      "authenticatedPattern": "Logged in",
+      "unauthenticatedPattern": "Not logged in"
+    },
+    "versions": [
+      {
+        "version": "0.144.1",
+        "artifacts": {
+          "darwin-arm64": {
+            "url": "https://github.com/openai/codex/releases/download/rust-v0.144.1/codex-package-aarch64-apple-darwin.tar.gz",
+            "sha256": "326198829dfb4b68da59723cf605478a2e9bec89ff47feb645814a4c5eaf5f6c",
+            "archiveFormat": "tar.gz",
+            "executablePath": "bin/codex",
+            "size": 116108520
+          },
+          "darwin-x64": {
+            "url": "https://github.com/openai/codex/releases/download/rust-v0.144.1/codex-package-x86_64-apple-darwin.tar.gz",
+            "sha256": "1c797880977549b281eeb4ecd9dbd145542c4ce262a2835ea2847f19922ed30c",
+            "archiveFormat": "tar.gz",
+            "executablePath": "bin/codex",
+            "size": 126141492
+          },
+          "linux-x64": {
+            "url": "https://github.com/openai/codex/releases/download/rust-v0.144.1/codex-package-x86_64-unknown-linux-musl.tar.gz",
+            "sha256": "3fd50cf96809b1eea294bbfba0a5c3a576871b4876a1f0e91226e520c1923be1",
+            "archiveFormat": "tar.gz",
+            "executablePath": "bin/codex",
+            "size": 127942625
+          },
+          "linux-arm64": {
+            "url": "https://github.com/openai/codex/releases/download/rust-v0.144.1/codex-package-aarch64-unknown-linux-musl.tar.gz",
+            "sha256": "218ab48bdda98dde3e10df184cc0c4eb92c4372d9ca924ef1aa5fc81b4f6a38e",
+            "archiveFormat": "tar.gz",
+            "executablePath": "bin/codex",
+            "size": 119014929
+          },
+          "win32-x64": {
+            "url": "https://github.com/openai/codex/releases/download/rust-v0.144.1/codex-package-x86_64-pc-windows-msvc.tar.gz",
+            "sha256": "ce94e1fb84693d3f7332ceeab5be73e93de38725da4b82dff863cd2c795b4730",
+            "archiveFormat": "tar.gz",
+            "executablePath": "bin/codex.exe",
+            "size": 139699079
+          }
+        }
+      }
+    ]
+  },
+  "live": {
+    "kind": "json-rpc-turn",
+    "args": ["app-server", "--listen", "stdio://"],
+    "prompt": "Reply exactly ZCLAUDIA_RUNTIME_COMPAT_OK. Do not use tools, files, shell commands, or MCP."
+  },
+  "distribution": {
+    "vendorDependencies": false
+  }
+}

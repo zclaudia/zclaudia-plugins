@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ClaudeAgentAdapter } from '../adapter.js';
+import { runAdapterConformanceSuite } from '../../../../scripts/runtime-conformance.mjs';
 
 const { queryMock, loadClaudeAgentConfigMock, inspectClaudeCliMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
@@ -35,6 +36,25 @@ async function drain(adapter: ClaudeAgentAdapter): Promise<void> {
 }
 
 describe('ClaudeAgentAdapter MCP bridge merge', () => {
+  it('satisfies the shared normalized event-stream contract', async () => {
+    async function* conformanceStream() {
+      yield { type: 'system', subtype: 'init', session_id: 'claude-session' };
+      yield {
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'hello from Claude' }] },
+      };
+      yield { type: 'result', result: 'done' };
+    }
+    queryMock.mockReturnValueOnce(conformanceStream());
+    const suite = await runAdapterConformanceSuite({
+      adapter: new ClaudeAgentAdapter(async () => null),
+      input: 'hello',
+      context: { cwd: '/tmp/project', claudiaSessionId: 'session-1', serverPort: 3100 },
+      onPermission: vi.fn(),
+    });
+    expect(suite.passed).toBe(true);
+  });
+
   it('adds the tool-bridge entry when no MCP server uses its name', async () => {
     loadClaudeAgentConfigMock.mockReturnValueOnce({
       mcpServers: { docs: { command: 'node', args: ['docs.js'] } },

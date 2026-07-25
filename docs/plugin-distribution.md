@@ -1,7 +1,7 @@
 # Plugin Distribution Design
 
 Status: phases 1 and 2 and the phase 3 local-file host installer are implemented; catalog, URL
-installation, and signing remain
+installation, signing, and dedicated authenticated compatibility CI remain
 
 This document defines how the official ZClaudia agent plugins are built and distributed without
 publishing them to the npm registry. It is intentionally owned by the `zclaudia-plugins`
@@ -199,6 +199,8 @@ The implementation should:
 9. Generate `<artifact>.sha256`.
 10. Extract the archive into a temporary directory and smoke-import its `main` entrypoint.
 11. Emit machine-readable artifact metadata for the release workflow.
+12. Carry the plugin's `runtime-compatibility.json` descriptor so the host and release evidence
+    identify the expected executable, version policy, and test protocol.
 
 Suggested generated paths, all ignored by Git:
 
@@ -259,6 +261,17 @@ version `0.1.0` and selector `claude`, for example, it should:
 8. Publish provenance/signature information when signing is enabled.
 
 The workflow must not run `npm publish` and does not require npm Trusted Publishing.
+
+Before a release is certified for a host CLI, run the repository compatibility suite in a protected
+environment with a dedicated provider account:
+
+```bash
+pnpm compat:test <agent> --live --report artifacts/compatibility-report.json
+```
+
+The release can record the report as evidence for its tested plugin/CLI/platform combination. A
+normal CI run should retain deterministic fixture and artifact tests; it must not require provider
+credentials.
 
 ## Catalog
 

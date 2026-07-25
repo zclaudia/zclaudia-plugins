@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { runAdapterConformanceSuite } from '../../../../scripts/runtime-conformance.mjs';
 
 const runCursorMock = vi.fn(async function* () {
   yield { type: 'init', sessionId: 'prov-1' } as const;
@@ -20,6 +21,21 @@ describe('CursorAgentAdapter', () => {
 
   it('registers type cursor', () => {
     expect(new CursorAgentAdapter(async () => null).type).toBe('cursor');
+  });
+
+  it('satisfies the shared normalized event-stream contract', async () => {
+    runCursorMock.mockImplementationOnce(async function* () {
+      yield { type: 'init', sessionId: 'cursor-session' };
+      yield { type: 'assistant', content: 'hello from Cursor' };
+      yield { type: 'result', isComplete: true };
+    });
+    const suite = await runAdapterConformanceSuite({
+      adapter: new CursorAgentAdapter(async () => null),
+      input: 'hello',
+      context: { cwd: '/tmp/project', claudiaSessionId: 'session-1', serverPort: 3100 },
+      onPermission: vi.fn(),
+    });
+    expect(suite.passed).toBe(true);
   });
 
   it('calls createToolBridge and passes bridge into runCursor', async () => {

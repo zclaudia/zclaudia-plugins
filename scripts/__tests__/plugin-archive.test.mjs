@@ -33,6 +33,21 @@ async function createFixture() {
     })
   );
   await writeFile(
+    path.join(directory, 'runtime-compatibility.json'),
+    JSON.stringify({
+      schemaVersion: 1,
+      runtime: 'codex',
+      executable: { command: 'codex', versionArgs: ['--version'] },
+      probe: { kind: 'command', args: ['--help'] },
+      live: {
+        kind: 'json-rpc-turn',
+        args: ['app-server', '--listen', 'stdio://'],
+        prompt: 'compatibility test',
+      },
+      distribution: { vendorDependencies: false },
+    })
+  );
+  await writeFile(
     path.join(directory, 'dist', 'main.js'),
     'export default function activate() {}\n'
   );
@@ -51,7 +66,7 @@ describe('plugin archives', () => {
     expect(await readFile(first)).toEqual(await readFile(second));
     const validation = await validatePlugin(first);
     expect(validation.manifest.id).toBe('com.zclaudia.codex');
-    expect(validation.fileCount).toBe(4);
+    expect(validation.fileCount).toBe(5);
   });
 
   it('rejects an archive with a traversal entry', async () => {

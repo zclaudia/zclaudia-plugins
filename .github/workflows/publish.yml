@@ -9,15 +9,10 @@ on:
         required: true
         type: string
       plugin:
-        description: Publish all plugins or one plugin
+        description: Publish all plugins or one discovered runtime directory
         required: true
         default: all
-        type: choice
-        options:
-          - all
-          - claude
-          - codex
-          - cursor
+        type: string
 
 permissions:
   contents: write
@@ -57,6 +52,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+
+      - name: Verify managed runtime artifacts
+        env:
+          SELECTED_PLUGIN: ${{ inputs.plugin }}
+        run: pnpm managed:verify "$SELECTED_PLUGIN" --all-platforms
 
       - name: Package requested plugins
         env:

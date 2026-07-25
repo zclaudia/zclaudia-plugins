@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "runtime": "cursor",
+  "executable": {
+    "command": "cursor-agent",
+    "versionArgs": ["--version"],
+    "versionPattern": "(?:^|\\s)(\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?)(?=\\s|$)"
+  },
+  "probe": {
+    "kind": "command",
+    "args": ["--help"]
+  },
+  "live": {
+    "kind": "stream-json",
+    "args": [
+      "--print",
+      "--output-format",
+      "stream-json",
+      "--mode",
+      "ask",
+      "--trust",
+      "Reply exactly ZCLAUDIA_RUNTIME_COMPAT_OK. Do not use tools, files, shell commands, or MCP."
+    ],
+    "completionTypes": ["result"]
+  },
+  "distribution": {
+    "vendorDependencies": false
+  }
+}

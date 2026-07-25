@@ -18,21 +18,26 @@ import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import { createDeterministicZip, deterministicTimestamp, extractZip } from './plugin-archive.mjs';
 import { validatePlugin } from './plugin-validation.mjs';
+import { readRuntimeCompatibility } from './runtime-compatibility.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const artifactsRoot = path.join(repoRoot, 'artifacts');
 const stagingRoot = path.join(artifactsRoot, 'staging');
 const releaseRoot = path.join(artifactsRoot, 'release');
-const supportedAgents = ['claude', 'codex', 'cursor'];
 const runtimeDistExtensions = new Set(['.cjs', '.js', '.json', '.mjs']);
-const requiredExecutables = {
-  claude: 'claude',
-  codex: 'codex',
-  cursor: 'cursor-agent',
-};
+
+async function discoverAgentNames() {
+  const entries = await readdir(path.join(repoRoot, 'agents'), { withFileTypes: true });
+  return entries
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort((left, right) => left.localeCompare(right, 'en'));
+}
+
+const supportedAgents = await discoverAgentNames();
 
 function usage() {
-  console.error('Usage: pnpm pack:plugin <claude|codex|cursor> [--skip-checks]');
+  console.error(`Usage: pnpm pack:plugin <${supportedAgents.join('|')}> [--skip-checks]`);
   console.error('       pnpm pack:plugins');
 }
 
@@ -268,18 +273,13 @@ async function sha256(file) {
     .digest('hex');
 }
 
-async function compatibilityMetadata(agent, agentRoot) {
-  if (agent !== 'claude') return undefined;
-  const module = await import(pathToFileURL(path.join(agentRoot, 'dist', 'compatibility.js')).href);
-  return module.CLAUDE_CLI_COMPATIBILITY;
-}
-
 async function packAgent(agent) {
   const agentRoot = path.join(repoRoot, 'agents', agent);
   const packagePath = path.join(agentRoot, 'package.json');
   const manifestPath = path.join(agentRoot, 'plugin.json');
   const packageJson = await readJson(packagePath);
   const manifest = await readJson(manifestPath);
+  const runtimeCompatibility = await readRuntimeCompatibility(agentRoot);
   assertSourceMetadata(agent, packageJson, manifest);
 
   const stagingDirectory = path.join(stagingRoot, agent);
@@ -293,14 +293,14 @@ async function packAgent(agent) {
   ]);
   await mkdir(stagingDirectory, { recursive: true });
   await Promise.all(
-    ['plugin.json', 'README.md', 'LICENSE'].map(file =>
+    ['plugin.json', 'runtime-compatibility.json', 'README.md', 'LICENSE'].map(file =>
       copyFile(path.join(agentRoot, file), path.join(stagingDirectory, file))
     )
   );
   await copyRuntimeDist(path.join(agentRoot, 'dist'), path.join(stagingDirectory, 'dist'));
 
   let dependencies = [];
-  if (agent === 'claude') {
+  if (runtimeCompatibility.distribution.vendorDependencies) {
     await vendorClaudeDependencies(packageJson.name, stagingDirectory);
     dependencies = await generateLicenseInventory(stagingDirectory);
   }
@@ -333,8 +333,8 @@ async function packAgent(agent) {
       unpackedSize: validation.unpackedSize,
     },
     runtime: {
-      requiredExecutable: requiredExecutables[agent],
-      compatibility: await compatibilityMetadata(agent, agentRoot),
+      requiredExecutable: runtimeCompatibility.executable.command,
+      compatibility: runtimeCompatibility,
     },
     dependencies,
   };

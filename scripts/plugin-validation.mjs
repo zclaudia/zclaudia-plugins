@@ -6,6 +6,10 @@ import {
   readZip,
   resolveSafeLinkTarget,
 } from './plugin-archive.mjs';
+import {
+  RUNTIME_COMPATIBILITY_FILE,
+  validateRuntimeCompatibility,
+} from './runtime-compatibility.mjs';
 
 const ALLOWED_ROOT_ENTRIES = new Set([
   'LICENSE',
@@ -15,6 +19,7 @@ const ALLOWED_ROOT_ENTRIES = new Set([
   'node_modules',
   'package.json',
   'plugin.json',
+  RUNTIME_COMPATIBILITY_FILE,
 ]);
 const FORBIDDEN_PLUGIN_COMPONENTS = new Set([
   '.cache',
@@ -161,20 +166,38 @@ function validateEntries(entries, manifest, limits) {
   }
 
   const agent = manifest.id.replace(/^com\.zclaudia\./, '');
-  if (!['claude', 'codex', 'cursor'].includes(agent)) fail(`unsupported plugin id ${manifest.id}.`);
+  if (!agent || agent === manifest.id) {
+    fail(`plugin id must use the com.zclaudia namespace: ${manifest.id}.`);
+  }
+  const compatibilityEntry = entryByName.get(RUNTIME_COMPATIBILITY_FILE);
+  if (!compatibilityEntry || compatibilityEntry.type !== 'file') {
+    fail(`${RUNTIME_COMPATIBILITY_FILE} is missing from the plugin root.`);
+  }
+  let compatibility;
+  try {
+    compatibility = validateRuntimeCompatibility(
+      parseJson(compatibilityEntry, RUNTIME_COMPATIBILITY_FILE),
+      agent
+    );
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
   const hasNodeModules = entries.some(entry => entry.name.startsWith('node_modules/'));
-  if (agent === 'claude') {
-    if (!entryByName.has('node_modules/@anthropic-ai/claude-agent-sdk')) {
-      fail('Claude artifact does not contain @anthropic-ai/claude-agent-sdk.');
+  if (compatibility.distribution.vendorDependencies) {
+    for (const packageName of compatibility.distribution.requiredRuntimePackages ?? []) {
+      const packageRoot = `node_modules/${packageName}/`;
+      if (!entries.some(entry => entry.name.startsWith(packageRoot))) {
+        fail(`artifact does not contain required runtime package ${packageName}.`);
+      }
     }
     if (!entryByName.has('THIRD_PARTY_LICENSES.txt')) {
-      fail('Claude artifact does not contain THIRD_PARTY_LICENSES.txt.');
+      fail('artifact with vendored dependencies does not contain THIRD_PARTY_LICENSES.txt.');
     }
   } else if (hasNodeModules) {
     fail(`${agent} artifact must not vendor node_modules.`);
   }
 
-  return { agent, fileCount: entries.length, manifest, unpackedSize: totalSize };
+  return { agent, compatibility, fileCount: entries.length, manifest, unpackedSize: totalSize };
 }
 
 async function validateDirectorySymlinks(root, entries) {

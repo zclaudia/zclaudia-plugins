@@ -44,13 +44,32 @@ ZClaudia. It supports raw/JSONL traces, resumable provider sessions, terminal pe
 abort handling, and an optional authenticated MCP debug bridge. See
 [Standalone Agent Runtime](docs/standalone-agent-runtime.md).
 
+## Runtime compatibility
+
+Each plugin declares how to probe and certify its host CLI in
+`runtime-compatibility.json`. Run a safe local probe for every discovered runtime with:
+
+```bash
+pnpm compat:test all --report artifacts/compatibility-report.json
+```
+
+The optional `--live` mode performs a real provider turn in a temporary directory and may consume
+provider quota:
+
+```bash
+pnpm compat:test all --live
+```
+
+See [Runtime Compatibility Testing](docs/runtime-compatibility.md) for result states, report
+format, managed installation metadata, and how to add future agent runtimes.
+
 ## Distribution
 
 The end-user distribution format is a versioned `.zplugin` archive published through GitHub
 Releases, not the npm registry. Build-time dependencies may still be installed with pnpm; they are
 either compiled away or vendored into the final archive.
 
-Build one plugin or all three:
+Build one plugin or all discovered plugins:
 
 ```bash
 pnpm pack:plugin claude

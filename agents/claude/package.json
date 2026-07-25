@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "plugin.json",
+    "runtime-compatibility.json",
     "README.md",
     "LICENSE"
   ],
@@ -17,7 +18,8 @@
       "types": "./dist/main.d.ts",
       "import": "./dist/main.js"
     },
-    "./plugin.json": "./plugin.json"
+    "./plugin.json": "./plugin.json",
+    "./runtime-compatibility.json": "./runtime-compatibility.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

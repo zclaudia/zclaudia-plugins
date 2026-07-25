@@ -1,8 +1,31 @@
-export const CLAUDE_CLI_COMPATIBILITY = Object.freeze({
-  minimum: '2.1.140',
-  testedMaximum: '2.1.141',
-  knownIncompatible: [] as string[],
-});
+import { readFileSync } from 'node:fs';
+
+interface RuntimeCompatibilityDescriptor {
+  versionPolicy?: {
+    minimum?: string;
+    testedMaximum?: string;
+    knownIncompatible?: string[];
+  };
+}
+
+function readClaudeVersionPolicy(): Required<
+  NonNullable<RuntimeCompatibilityDescriptor['versionPolicy']>
+> {
+  const descriptor = JSON.parse(
+    readFileSync(new URL('../runtime-compatibility.json', import.meta.url), 'utf8')
+  ) as RuntimeCompatibilityDescriptor;
+  const policy = descriptor.versionPolicy;
+  if (!policy?.minimum || !policy.testedMaximum || !Array.isArray(policy.knownIncompatible)) {
+    throw new Error('Claude runtime-compatibility.json must declare a complete versionPolicy.');
+  }
+  return {
+    minimum: policy.minimum,
+    testedMaximum: policy.testedMaximum,
+    knownIncompatible: policy.knownIncompatible,
+  };
+}
+
+export const CLAUDE_CLI_COMPATIBILITY = Object.freeze(readClaudeVersionPolicy());
 
 function versionParts(version: string): [number, number, number] {
   const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version);
