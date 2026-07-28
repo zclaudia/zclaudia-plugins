@@ -63,21 +63,30 @@ describe('runner', () => {
     mockClient.updateExtraArgs.mockClear();
   });
 
-  it('hashes environment values in cache keys instead of exposing secrets', () => {
+  it('uses an opaque cache key that does not expose environment or MCP secrets', () => {
     const key = getCacheKey(
-      { cwd: '/tmp/project', cliPath: '/tmp/codex' },
-      { API_TOKEN: 'super-secret-value', PATH: '/usr/bin' },
-      'config-signature'
-    );
-    const changedKey = getCacheKey(
-      { cwd: '/tmp/project', cliPath: '/tmp/codex' },
-      { API_TOKEN: 'different-secret-value', PATH: '/usr/bin' },
-      'config-signature'
+      { cwd: '/tmp/project', cliPath: '/private/bin/codex' },
+      { API_TOKEN: 'super-secret-token' },
+      'mcp-token = "another-secret"'
     );
 
-    expect(key).not.toContain('super-secret-value');
-    expect(key).not.toContain('API_TOKEN');
-    expect(key).not.toBe(changedKey);
+    expect(key).toMatch(/^[a-f0-9]{64}$/);
+    expect(key).not.toContain('super-secret-token');
+    expect(key).not.toContain('another-secret');
+    expect(
+      getCacheKey(
+        { cwd: '/tmp/project', cliPath: '/private/bin/codex' },
+        { API_TOKEN: 'super-secret-token' },
+        'mcp-token = "another-secret"'
+      )
+    ).toBe(key);
+    expect(
+      getCacheKey(
+        { cwd: '/tmp/project', cliPath: '/private/bin/codex' },
+        { API_TOKEN: 'different-secret-token' },
+        'mcp-token = "another-secret"'
+      )
+    ).not.toBe(key);
   });
 
   it('new run calls writeMcpConfig, startThread(cwd), and streams events', async () => {
