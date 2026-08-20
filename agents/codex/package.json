@@ -26,6 +26,7 @@
     "clean": "rm -rf dist coverage",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "protocol:check": "node scripts/check-app-server-protocol.mjs",
     "pack:check": "npm pack --dry-run",
     "prepublishOnly": "pnpm clean && pnpm typecheck && pnpm test && pnpm build"
   },

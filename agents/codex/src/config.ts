@@ -7,6 +7,8 @@ import {
   readFileSync,
   realpathSync,
 } from 'fs';
+import type { AppServerInputBlock } from './app-server-protocol.js';
+export type { AppServerInputBlock } from './app-server-protocol.js';
 import { join } from 'path';
 import { homedir } from 'os';
 import type { ProviderToolBridgeEntry } from '@zclaudia/plugin-sdk/providers';
@@ -102,13 +104,8 @@ export function mapModeToConfigArgs(mode?: string): string[] {
 
 // ── Input preparation (phase 1: text-only) ───────────────────
 
-export interface AppServerInputBlock {
-  type: 'text';
-  text: string;
-}
-
 export function prepareAppServerInput(rawInput: string): AppServerInputBlock[] {
-  return [{ type: 'text', text: rawInput }];
+  return [{ type: 'text', text: rawInput, text_elements: [] }];
 }
 
 // ── Inherited provider env sanitization (inlined from server) ──
@@ -171,6 +168,34 @@ export function mcpServersToToml(mcpServers: Record<string, unknown>): string {
 export function buildMcpConfigToml(bridge: ProviderToolBridgeEntry | null): string {
   if (!bridge) return '';
   return mcpServersToToml({ [bridge.name]: bridge.config });
+}
+
+/**
+ * The injected MCP server as `-c mcp_servers.*` CLI overrides. The app-server
+ * resolves the project-level `.codex/config.toml` from each thread's cwd, not
+ * the process cwd, so threads running in the real project never see the config
+ * written to the stable codex-config dir. CLI overrides apply to every thread
+ * regardless of its cwd. Values are JSON-encoded strings/arrays, which are
+ * also valid TOML for codex's override parser.
+ */
+export function buildMcpConfigArgs(bridge: ProviderToolBridgeEntry | null): string[] {
+  if (!bridge) return [];
+  const cfg = bridge.config as Record<string, unknown>;
+  const prefix = `mcp_servers.${bridge.name}`;
+  const args: string[] = [];
+  if (cfg.command) args.push('-c', `${prefix}.command=${JSON.stringify(cfg.command)}`);
+  if (cfg.args && Array.isArray(cfg.args)) {
+    args.push('-c', `${prefix}.args=${JSON.stringify(cfg.args)}`);
+  }
+  if (cfg.env && typeof cfg.env === 'object') {
+    for (const [key, value] of Object.entries(cfg.env as Record<string, string>).sort(([a], [b]) =>
+      a.localeCompare(b)
+    )) {
+      args.push('-c', `${prefix}.env.${key}=${JSON.stringify(value)}`);
+    }
+  }
+  if (cfg.url) args.push('-c', `${prefix}.url=${JSON.stringify(cfg.url)}`);
+  return args;
 }
 
 export function upsertTrustedProjectConfig(existing: string, projectPath: string): string {

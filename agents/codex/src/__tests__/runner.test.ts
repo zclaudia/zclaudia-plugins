@@ -44,9 +44,9 @@ import {
   abortCodexSession,
   destroyAllCodexClients,
   getCacheKey,
+  getOrCreateAppServerClient,
   resetCodexRunnerForTests,
   runCodexAppServer,
-  setCodexSessionMode,
 } from '../runner.js';
 
 const denyAll: PermissionCallback = async () => ({ behavior: 'deny' as const });
@@ -61,6 +61,7 @@ describe('runner', () => {
     mockClient.runTurn.mockClear();
     mockClient.interruptTurn.mockClear();
     mockClient.updateExtraArgs.mockClear();
+    mockClient.currentMode = undefined;
   });
 
   it('uses an opaque cache key that does not expose environment or MCP secrets', () => {
@@ -87,6 +88,38 @@ describe('runner', () => {
         'mcp-token = "another-secret"'
       )
     ).not.toBe(key);
+  });
+
+  it('cache key ignores mode because permission behavior updates on the reused client', () => {
+    const base = { cwd: '/tmp/project', cliPath: '/tmp/codex' };
+    const env = { PATH: '/usr/bin' };
+    expect(getCacheKey({ ...base, mode: 'plan' }, env, 'sig')).toBe(
+      getCacheKey({ ...base, mode: 'ask' }, env, 'sig')
+    );
+  });
+
+  it('cache key ignores model because model is a turn-level override', () => {
+    const base = { cwd: '/tmp/project', cliPath: '/tmp/codex' };
+    const env = { PATH: '/usr/bin' };
+    expect(getCacheKey({ ...base, model: 'gpt-5' }, env, 'sig')).toBe(
+      getCacheKey({ ...base, model: 'o3' }, env, 'sig')
+    );
+  });
+
+  it('reuses one client across mode and model changes without model process args', () => {
+    getOrCreateAppServerClient({ cwd: '/tmp/p', mode: 'plan', bridge: null });
+    getOrCreateAppServerClient({ cwd: '/tmp/p', mode: 'ask', model: 'gpt-5', bridge: null });
+    expect(MockCodexAppServerClient).toHaveBeenCalledTimes(1);
+    expect(mockClient.currentMode).toBe('ask');
+    expect(mockClient.updateExtraArgs).toHaveBeenLastCalledWith([
+      '-c',
+      'approval_policy="on-request"',
+    ]);
+  });
+
+  it('sets currentMode on the client at creation from options.mode', () => {
+    getOrCreateAppServerClient({ cwd: '/tmp/p', mode: 'plan', bridge: null });
+    expect(mockClient.currentMode).toBe('plan');
   });
 
   it('new run calls writeMcpConfig, startThread(cwd), and streams events', async () => {
@@ -134,57 +167,44 @@ describe('runner', () => {
     expect(mockClient.interruptTurn).toHaveBeenCalledWith('thread-1');
   });
 
-  it('setCodexSessionMode updates client.currentMode when called with claudiaSessionId during run', async () => {
-    mockClient.startThread.mockResolvedValueOnce('thread-new');
+  it('re-registers the fresh thread for aborts after session recovery', async () => {
     let unblockTurn: (() => void) | undefined;
     const turnBlocked = new Promise<void>(resolve => {
       unblockTurn = resolve;
     });
-    mockClient.runTurn.mockImplementationOnce(async function* () {
-      yield { type: 'init', sessionId: 'thread-new' };
-      await turnBlocked;
-      yield { type: 'assistant_delta', content: 'done' };
-    });
+    mockClient.runTurn
+      .mockImplementationOnce(async function* () {
+        yield { type: 'init', sessionId: 'existing-thread' };
+        yield { type: 'provider_error', error: 'thread not found' };
+      })
+      .mockImplementationOnce(async function* () {
+        yield { type: 'init', sessionId: 'thread-fresh' };
+        await turnBlocked;
+        yield { type: 'assistant_delta', content: 'recovered' };
+      });
+    mockClient.startThread.mockResolvedValueOnce('thread-fresh');
 
     const gen = runCodexAppServer(
       'hello',
-      { cwd: '/tmp/project', claudiaSessionId: 'claudia-sess-1', bridge: null },
+      { cwd: '/tmp/project', sessionId: 'existing-thread', bridge: null },
       denyAll
     );
-    await gen.next();
+    // Recovery notice, then the fresh turn's init.
+    await expect(gen.next()).resolves.toMatchObject({
+      value: expect.objectContaining({ type: 'assistant_delta' }),
+    });
+    await expect(gen.next()).resolves.toMatchObject({
+      value: { type: 'init', sessionId: 'thread-fresh' },
+    });
 
-    mockClient.currentMode = 'default';
-    setCodexSessionMode('claudia-sess-1', 'plan');
-    expect(mockClient.currentMode).toBe('plan');
+    await abortCodexSession('existing-thread');
+    expect(mockClient.interruptTurn).not.toHaveBeenCalled();
+
+    await abortCodexSession('thread-fresh');
+    expect(mockClient.interruptTurn).toHaveBeenCalledWith('thread-fresh');
 
     unblockTurn?.();
     await gen.next();
-    await gen.return(undefined);
-  });
-
-  it('setCodexSessionMode updates client.currentMode when called with provider threadId', async () => {
-    mockClient.startThread.mockResolvedValueOnce('thread-new');
-    let unblockTurn: (() => void) | undefined;
-    const turnBlocked = new Promise<void>(resolve => {
-      unblockTurn = resolve;
-    });
-    mockClient.runTurn.mockImplementationOnce(async function* () {
-      yield { type: 'init', sessionId: 'thread-new' };
-      await turnBlocked;
-    });
-
-    const gen = runCodexAppServer(
-      'hello',
-      { cwd: '/tmp/project', claudiaSessionId: 'claudia-sess-1', bridge: null },
-      denyAll
-    );
-    await gen.next();
-
-    mockClient.currentMode = 'default';
-    setCodexSessionMode('thread-new', 'bypassPermissions');
-    expect(mockClient.currentMode).toBe('bypassPermissions');
-
-    unblockTurn?.();
     await gen.return(undefined);
   });
 

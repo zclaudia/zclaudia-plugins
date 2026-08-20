@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildEnv,
+  buildMcpConfigArgs,
   buildMcpConfigToml,
   mapModeToConfigArgs,
   mcpServersToToml,
@@ -36,6 +37,27 @@ describe('config', () => {
     });
   });
 
+  describe('buildMcpConfigArgs', () => {
+    it('emits -c overrides for command, args, env, and url', () => {
+      const args = buildMcpConfigArgs({
+        name: 'claudia-plugins',
+        config: { command: 'node', args: ['bridge.js'], env: { BRIDGE_TOKEN: 'secret' } },
+      });
+      expect(args).toEqual([
+        '-c',
+        'mcp_servers.claudia-plugins.command="node"',
+        '-c',
+        'mcp_servers.claudia-plugins.args=["bridge.js"]',
+        '-c',
+        'mcp_servers.claudia-plugins.env.BRIDGE_TOKEN="secret"',
+      ]);
+    });
+
+    it('returns no args when bridge is null', () => {
+      expect(buildMcpConfigArgs(null)).toEqual([]);
+    });
+  });
+
   describe('mapModeToConfigArgs', () => {
     it('includes approval_policy on-request for plan mode', () => {
       const args = mapModeToConfigArgs('plan');
@@ -54,7 +76,9 @@ describe('config', () => {
 
   describe('prepareAppServerInput', () => {
     it('returns text-only blocks for phase 1', () => {
-      expect(prepareAppServerInput('hello')).toEqual([{ type: 'text', text: 'hello' }]);
+      expect(prepareAppServerInput('hello')).toEqual([
+        { type: 'text', text: 'hello', text_elements: [] },
+      ]);
     });
   });
 

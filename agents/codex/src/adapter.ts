@@ -7,7 +7,7 @@ import type {
   ProviderToolBridgeEntry,
   ProviderToolBridgeRequest,
 } from '@zclaudia/plugin-sdk/providers';
-import { runCodexAppServer, abortCodexSession, setCodexSessionMode } from './runner.js';
+import { runCodexAppServer, abortCodexSession } from './runner.js';
 
 export type ToolBridgeFactory = (
   req: ProviderToolBridgeRequest
@@ -74,6 +74,12 @@ export class CodexAgentAdapter implements ExternalAgentAdapter {
           }
           this.runStates.set(context, { providerSessionId: id, providerCwd: context.cwd });
         }
+        if (event.type === 'mode_transition' && event.modeTransition?.mode) {
+          if (claudiaSessionId) {
+            this.sessionModes.set(claudiaSessionId, event.modeTransition.mode);
+          }
+          if (currentKey) this.sessionModes.set(currentKey, event.modeTransition.mode);
+        }
         yield event;
       }
     } finally {
@@ -93,7 +99,6 @@ export class CodexAgentAdapter implements ExternalAgentAdapter {
   setSessionMode(sessionId: string, mode: string): void {
     if (!sessionId) return;
     this.sessionModes.set(sessionId, mode);
-    setCodexSessionMode(sessionId, mode);
   }
 
   async abort(sessionId: string, _cwd: string): Promise<void> {

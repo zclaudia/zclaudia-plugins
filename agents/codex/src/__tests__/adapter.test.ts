@@ -5,12 +5,10 @@ const runCodexAppServerMock = vi.fn(async function* (_input, _opts) {
   yield { type: 'init', sessionId: 't1' };
 });
 const abortCodexSessionMock = vi.fn(async () => {});
-const setCodexSessionModeMock = vi.fn();
 
 vi.mock('../runner.js', () => ({
   runCodexAppServer: (...args: unknown[]) => runCodexAppServerMock(...args),
   abortCodexSession: (...args: unknown[]) => abortCodexSessionMock(...args),
-  setCodexSessionMode: (...args: unknown[]) => setCodexSessionModeMock(...args),
 }));
 
 import { CodexAgentAdapter } from '../adapter.js';
@@ -19,7 +17,6 @@ describe('CodexAgentAdapter', () => {
   beforeEach(() => {
     runCodexAppServerMock.mockClear();
     abortCodexSessionMock.mockClear();
-    setCodexSessionModeMock.mockClear();
     runCodexAppServerMock.mockImplementation(async function* (_input, _opts) {
       yield { type: 'init', sessionId: 't1' };
     });
@@ -77,9 +74,39 @@ describe('CodexAgentAdapter', () => {
     )) {
       /* drain */
     }
-    expect(setCodexSessionModeMock).toHaveBeenCalledWith('sess', 'plan');
     expect(runCodexAppServerMock).toHaveBeenCalledWith(
       'hi',
+      expect.objectContaining({ mode: 'plan' }),
+      expect.any(Function)
+    );
+  });
+
+  it('uses provider mode transitions for the next resumed turn', async () => {
+    runCodexAppServerMock.mockImplementationOnce(async function* () {
+      yield { type: 'init', sessionId: 'provider-1' };
+      yield {
+        type: 'mode_transition',
+        modeTransition: { mode: 'plan', reason: 'enter' },
+      };
+    });
+    const adapter = new CodexAgentAdapter(async () => null);
+    for await (const _ of adapter.run(
+      'plan it',
+      { cwd: '/p', claudiaSessionId: 'sess', mode: 'default' },
+      vi.fn()
+    )) {
+      /* drain */
+    }
+    runCodexAppServerMock.mockClear();
+    for await (const _ of adapter.run(
+      'continue',
+      { cwd: '/p', sessionId: 'provider-1', claudiaSessionId: 'sess', mode: 'default' },
+      vi.fn()
+    )) {
+      /* drain */
+    }
+    expect(runCodexAppServerMock).toHaveBeenCalledWith(
+      'continue',
       expect.objectContaining({ mode: 'plan' }),
       expect.any(Function)
     );

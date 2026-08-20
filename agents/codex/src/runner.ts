@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
+import { realpathSync } from 'node:fs';
+import path from 'node:path';
 import type { PermissionCallback, ProviderRuntimeEvent } from '@zclaudia/plugin-sdk/providers';
 import type { ProviderToolBridgeEntry } from '@zclaudia/plugin-sdk/providers';
 import { CodexAppServerClient } from './app-server-client.js';
 import {
   buildEnv,
+  buildMcpConfigArgs,
   debugLog,
   mapModeToConfigArgs,
   prepareAppServerInput,
@@ -28,7 +31,12 @@ const appServerClients = new Map<string, CodexAppServerClient>();
 const threadCwds = new Map<string, string>();
 
 function normalizeCwdForCompare(cwd: string): string {
-  return cwd.replace(/[\\/]+$/, '');
+  const resolved = path.resolve(cwd);
+  try {
+    return realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
 }
 
 function isLikelyManagedWorktree(cwd: string): boolean {
@@ -61,7 +69,7 @@ export function getCacheKey(
     configSignature,
     env: Object.keys(env)
       .sort()
-    .map(key => [key, env[key]]),
+      .map(key => [key, env[key]]),
   });
   return createHash('sha256').update(cacheInputs).digest('hex');
 }
@@ -69,9 +77,11 @@ export function getCacheKey(
 export function getOrCreateAppServerClient(options: CodexRunOptions): CodexAppServerClient {
   const env = buildEnv(options);
   const modeArgs = mapModeToConfigArgs(options.mode);
-  const modelArgs = options.model ? ['-c', `model="${options.model}"`] : [];
-  const extraArgs = [...modeArgs, ...modelArgs];
   const { configDir, configSignature } = writeMcpConfig(options.bridge ?? null);
+  const mcpArgs = buildMcpConfigArgs(options.bridge ?? null);
+  // Model is supplied to turn/start below. Keeping it out of process-level
+  // args lets a loaded thread change models without restarting its writer.
+  const extraArgs = [...modeArgs, ...mcpArgs];
   const key = getCacheKey(options, env, configSignature);
   let client = appServerClients.get(key);
   if (!client) {
@@ -82,6 +92,7 @@ export function getOrCreateAppServerClient(options: CodexRunOptions): CodexAppSe
   } else {
     client.updateExtraArgs(extraArgs);
   }
+  client.currentMode = options.mode;
   return client;
 }
 
@@ -123,13 +134,6 @@ function isTurnComplete(msg: ProviderRuntimeEvent): boolean {
 }
 
 const activeThreadIds = new Map<string, { client: CodexAppServerClient; threadId: string }>();
-const sessionClientMap = new Map<string, CodexAppServerClient>();
-
-function registerSessionClient(sessionKey: string | undefined, client: CodexAppServerClient): void {
-  if (sessionKey) {
-    sessionClientMap.set(sessionKey, client);
-  }
-}
 
 export async function* runCodexAppServer(
   input: string,
@@ -137,10 +141,6 @@ export async function* runCodexAppServer(
   onPermission: PermissionCallback
 ): AsyncGenerator<ProviderRuntimeEvent, void, void> {
   const client = getOrCreateAppServerClient(options);
-  client.currentMode = options.mode;
-
-  registerSessionClient(options.claudiaSessionId, client);
-  registerSessionClient(options.sessionId, client);
 
   let threadId: string;
   let isResumed = false;
@@ -174,7 +174,6 @@ export async function* runCodexAppServer(
   }
   debugLog(`[Codex AppServer] Using threadId: ${threadId}`);
 
-  registerSessionClient(threadId, client);
   activeThreadIds.set(threadId, { client, threadId });
 
   try {
@@ -186,7 +185,7 @@ export async function* runCodexAppServer(
       if (firstText && firstText.text) {
         firstText.text = `${systemContext}\n\n${firstText.text}`;
       } else {
-        inputBlocks = [{ type: 'text', text: systemContext }, ...inputBlocks];
+        inputBlocks = [{ type: 'text', text: systemContext, text_elements: [] }, ...inputBlocks];
       }
     }
 
@@ -197,6 +196,7 @@ export async function* runCodexAppServer(
     for await (const msg of client.runTurn(threadId, inputBlocks, onPermission, {
       cwd: options.cwd,
       model: options.model,
+      mode: options.mode,
       systemPrompt: options.systemPrompt,
     })) {
       if (isProviderError(msg) && !streamingMode && isRecoverableSessionError(msg.error || '')) {
@@ -237,14 +237,17 @@ export async function* runCodexAppServer(
 
       const freshThreadId = await client.startThread(options.cwd);
       rememberThreadCwd(freshThreadId, options.cwd);
-      registerSessionClient(freshThreadId, client);
       debugLog(`[Codex AppServer] Recovery: new threadId=${freshThreadId}`);
+      activeThreadIds.delete(threadId);
+      threadId = freshThreadId;
+      activeThreadIds.set(threadId, { client, threadId });
 
       inputBlocks = prepareAppServerInput(input);
 
       yield* client.runTurn(freshThreadId, inputBlocks, onPermission, {
         cwd: options.cwd,
         model: options.model,
+        mode: options.mode,
         systemPrompt: options.systemPrompt,
       });
     }
@@ -255,28 +258,11 @@ export async function* runCodexAppServer(
 
 // ── Abort ────────────────────────────────────────────────────
 
-function deleteSessionClientRefs(client: CodexAppServerClient): void {
-  for (const [sessionId, mappedClient] of sessionClientMap) {
-    if (mappedClient === client) {
-      sessionClientMap.delete(sessionId);
-    }
-  }
-}
-
 export async function abortCodexSession(sessionId: string): Promise<void> {
   const entry = activeThreadIds.get(sessionId);
   if (entry) {
     await entry.client.interruptTurn(entry.threadId);
     activeThreadIds.delete(sessionId);
-  }
-  sessionClientMap.delete(sessionId);
-}
-
-export function setCodexSessionMode(sessionId: string, mode: string): void {
-  const client = sessionClientMap.get(sessionId);
-  if (client) {
-    client.currentMode = mode;
-    debugLog(`[Codex AppServer] Dynamic mode change for session ${sessionId}: ${mode}`);
   }
 }
 
@@ -292,7 +278,6 @@ export function runIdleCleanup(now = Date.now()): void {
       debugLog(`[Codex AppServer] Idle cleanup: ${key}`);
       client.destroy();
       appServerClients.delete(key);
-      deleteSessionClientRefs(client);
     }
   }
 }
@@ -308,7 +293,6 @@ export function destroyAllCodexClients(): void {
     client.destroy();
   }
   appServerClients.clear();
-  sessionClientMap.clear();
   threadCwds.clear();
   activeThreadIds.clear();
   clearInterval(cleanupTimer);
@@ -316,7 +300,6 @@ export function destroyAllCodexClients(): void {
 
 export function resetCodexRunnerForTests(): void {
   appServerClients.clear();
-  sessionClientMap.clear();
   threadCwds.clear();
   activeThreadIds.clear();
 }

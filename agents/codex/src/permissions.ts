@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { PermissionRequest } from '@zclaudia/plugin-sdk/interactions';
 import type { PermissionCallback } from '@zclaudia/plugin-sdk/providers';
 
@@ -55,7 +56,7 @@ export function mapApprovalToPermissionRequest(
     toolName,
     toolInput,
     detail,
-    requestId: `codex-${Date.now()}`,
+    requestId: `codex-${randomUUID()}`,
     timeoutSeconds: 0,
   };
 }
@@ -100,7 +101,7 @@ async function resolvePermissionsApproval(
         toolName: 'Permissions',
         toolInput: requestedPermissions || {},
         detail,
-        requestId: `codex-${Date.now()}`,
+        requestId: `codex-${randomUUID()}`,
         timeoutSeconds: 0,
       };
       const decision = await onPermission(permissionRequest);

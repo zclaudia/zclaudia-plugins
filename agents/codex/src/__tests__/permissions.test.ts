@@ -22,6 +22,17 @@ describe('mapApprovalToPermissionRequest', () => {
     expect(req.toolInput).toEqual({ grantRoot: '/path', reason: 'fix bug' });
     expect(req.detail).toBe('fix bug');
   });
+
+  it('assigns unique ids to concurrent approval requests', () => {
+    const first = mapApprovalToPermissionRequest('item/commandExecution/requestApproval', {
+      command: 'command-a',
+    });
+    const second = mapApprovalToPermissionRequest('item/commandExecution/requestApproval', {
+      command: 'command-b',
+    });
+
+    expect(first.requestId).not.toBe(second.requestId);
+  });
 });
 
 describe('resolveApprovalDecision', () => {
