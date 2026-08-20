@@ -69,6 +69,7 @@ export async function* runClaudeAgent(
   }
 
   const stream = query({ prompt: input, options: sdkOptions });
+  const planModeTools = new Map<string, 'EnterPlanMode' | 'ExitPlanMode'>();
   for await (const message of stream) {
     const transformed = transformClaudeSdkMessage(message);
     const events = Array.isArray(transformed) ? transformed : [transformed];
@@ -76,9 +77,54 @@ export async function* runClaudeAgent(
       if (event.type === 'init' && event.sessionId) {
         options.onSessionId?.(event.sessionId);
       }
+      if ((event.type === 'tool_use' || event.type === 'tool_started') && event.toolUseId) {
+        const planTool = canonicalClaudePlanTool(event.toolName);
+        if (planTool) planModeTools.set(event.toolUseId, planTool);
+      }
       yield event;
+      if ((event.type === 'tool_result' || event.type === 'tool_finished') && event.toolUseId) {
+        const toolName = planModeTools.get(event.toolUseId);
+        planModeTools.delete(event.toolUseId);
+        if (toolName && !event.isToolError) {
+          const result =
+            event.toolResult && typeof event.toolResult === 'object'
+              ? (event.toolResult as Record<string, unknown>)
+              : undefined;
+          const plan =
+            toolName === 'ExitPlanMode' && typeof result?.plan === 'string'
+              ? result.plan
+              : undefined;
+          yield {
+            type: 'mode_transition',
+            modeTransition: {
+              mode: toolName === 'EnterPlanMode' ? 'plan' : 'default',
+              reason: toolName === 'EnterPlanMode' ? 'enter' : 'exit',
+              sourceToolUseId: event.toolUseId,
+              ...(plan ? { plan } : {}),
+            },
+          };
+        }
+      }
     }
   }
+}
+
+function claudeToolSemantic(toolName: unknown): 'plan_enter' | 'plan_proposal' | undefined {
+  const canonical = canonicalClaudePlanTool(toolName);
+  if (canonical === 'EnterPlanMode') return 'plan_enter';
+  if (canonical === 'ExitPlanMode') return 'plan_proposal';
+  return undefined;
+}
+
+function canonicalClaudePlanTool(toolName: unknown): 'EnterPlanMode' | 'ExitPlanMode' | undefined {
+  if (typeof toolName !== 'string') return undefined;
+  if (toolName === 'EnterPlanMode' || toolName.endsWith('__enter_plan_mode')) {
+    return 'EnterPlanMode';
+  }
+  if (toolName === 'ExitPlanMode' || toolName.endsWith('__exit_plan_mode')) {
+    return 'ExitPlanMode';
+  }
+  return undefined;
 }
 
 export function transformClaudeSdkMessage(
@@ -163,6 +209,7 @@ export function transformClaudeSdkMessage(
           toolUseId: block.id as string | undefined,
           toolName: block.name as string | undefined,
           toolInput: block.input,
+          toolSemantic: claudeToolSemantic(block.name),
         });
       }
     }

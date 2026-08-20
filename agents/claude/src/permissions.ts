@@ -1,6 +1,12 @@
 import type { CanUseTool, PermissionResult } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionCallback } from '@zclaudia/plugin-sdk/providers';
 
+function planToolKind(toolName: string): 'enter' | 'exit' | undefined {
+  if (toolName === 'EnterPlanMode' || toolName.endsWith('__enter_plan_mode')) return 'enter';
+  if (toolName === 'ExitPlanMode' || toolName.endsWith('__exit_plan_mode')) return 'exit';
+  return undefined;
+}
+
 function detailFromClaudeRequest(input: {
   title?: string;
   displayName?: string;
@@ -18,6 +24,12 @@ export function buildClaudeCanUseTool(onPermission?: PermissionCallback): CanUse
     if (options.signal.aborted) {
       return denyAborted();
     }
+
+    // Entering plan mode is an internal mode transition, not a permission or
+    // a user decision. ExitPlanMode is the actual approval boundary and stays
+    // on the regular permission flow below.
+    const planTool = planToolKind(toolName);
+    if (planTool === 'enter') return { behavior: 'allow' };
 
     let decision;
     try {

@@ -55,6 +55,87 @@ describe('ClaudeAgentAdapter MCP bridge merge', () => {
     expect(suite.passed).toBe(true);
   });
 
+  it('emits shared plan tool semantics and mode transitions', async () => {
+    queryMock.mockReturnValueOnce(
+      (async function* () {
+        yield {
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'enter-1', name: 'EnterPlanMode', input: {} }],
+          },
+        };
+        yield {
+          type: 'user',
+          message: {
+            content: [{ type: 'tool_result', tool_use_id: 'enter-1', content: 'Entered' }],
+          },
+        };
+        yield {
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                id: 'exit-1',
+                name: 'ExitPlanMode',
+                input: { plan: '# Plan' },
+              },
+            ],
+          },
+        };
+        yield {
+          type: 'user',
+          message: {
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'exit-1',
+                content: { plan: '# Plan', isAgent: true },
+              },
+            ],
+          },
+        };
+      })()
+    );
+    const adapter = new ClaudeAgentAdapter(async () => null);
+    const events = [];
+    for await (const event of adapter.run('plan it', { cwd: '/tmp/project' }, vi.fn())) {
+      events.push(event);
+    }
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool_use',
+        toolUseId: 'enter-1',
+        toolSemantic: 'plan_enter',
+      })
+    );
+    expect(events).toContainEqual({
+      type: 'mode_transition',
+      modeTransition: {
+        mode: 'plan',
+        reason: 'enter',
+        sourceToolUseId: 'enter-1',
+      },
+    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool_use',
+        toolUseId: 'exit-1',
+        toolSemantic: 'plan_proposal',
+      })
+    );
+    expect(events).toContainEqual({
+      type: 'mode_transition',
+      modeTransition: {
+        mode: 'default',
+        reason: 'exit',
+        sourceToolUseId: 'exit-1',
+        plan: '# Plan',
+      },
+    });
+  });
+
   it('adds the tool-bridge entry when no MCP server uses its name', async () => {
     loadClaudeAgentConfigMock.mockReturnValueOnce({
       mcpServers: { docs: { command: 'node', args: ['docs.js'] } },
