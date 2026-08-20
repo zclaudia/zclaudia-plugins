@@ -46,7 +46,7 @@ export class CursorAgentAdapter implements ExternalAgentAdapter {
     const registeredProviderIds: string[] = [];
 
     try {
-      yield* runCursor(input, {
+      for await (const event of runCursor(input, {
         cwd: context.cwd,
         sessionId: context.sessionId,
         cliPath: context.cliPath,
@@ -70,7 +70,15 @@ export class CursorAgentAdapter implements ExternalAgentAdapter {
           }
           this.runStates.set(context, { providerSessionId: id, providerCwd: context.cwd });
         },
-      });
+      })) {
+        if (event.type === 'mode_transition' && event.modeTransition?.mode) {
+          if (claudiaSessionId) {
+            this.sessionModes.set(claudiaSessionId, event.modeTransition.mode);
+          }
+          if (currentKey) this.sessionModes.set(currentKey, event.modeTransition.mode);
+        }
+        yield event;
+      }
     } finally {
       if (currentKey) {
         this.abortControllers.delete(currentKey);

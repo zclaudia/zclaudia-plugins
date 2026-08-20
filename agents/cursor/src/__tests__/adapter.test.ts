@@ -59,6 +59,23 @@ describe('CursorAgentAdapter', () => {
     );
   });
 
+  it('passes the persisted provider session to Cursor for resume', async () => {
+    const adapter = new CursorAgentAdapter(async () => null);
+
+    for await (const _ of adapter.run(
+      'continue',
+      { cwd: '/p', sessionId: 'provider-existing', claudiaSessionId: 'client-session' },
+      vi.fn()
+    )) {
+      // drain
+    }
+
+    expect(runCursorMock).toHaveBeenCalledWith(
+      'continue',
+      expect.objectContaining({ sessionId: 'provider-existing', cwd: '/p' })
+    );
+  });
+
   it('uses setSessionMode over context.mode for the next turn', async () => {
     const adapter = new CursorAgentAdapter(async () => null);
     adapter.setSessionMode('sess', 'plan');
@@ -70,6 +87,36 @@ describe('CursorAgentAdapter', () => {
       /* drain */
     }
     expect(runCursorMock).toHaveBeenCalledWith('hi', expect.objectContaining({ mode: 'plan' }));
+  });
+
+  it('uses provider mode transitions for the next resumed turn', async () => {
+    runCursorMock.mockImplementationOnce(async function* () {
+      yield { type: 'init', sessionId: 'provider-1' };
+      yield {
+        type: 'mode_transition',
+        modeTransition: { mode: 'plan', reason: 'enter' },
+      };
+    });
+    const adapter = new CursorAgentAdapter(async () => null);
+    for await (const _ of adapter.run(
+      'plan it',
+      { cwd: '/p', claudiaSessionId: 'sess', mode: 'default' },
+      vi.fn()
+    )) {
+      /* drain */
+    }
+    runCursorMock.mockClear();
+    for await (const _ of adapter.run(
+      'continue',
+      { cwd: '/p', sessionId: 'provider-1', claudiaSessionId: 'sess', mode: 'default' },
+      vi.fn()
+    )) {
+      /* drain */
+    }
+    expect(runCursorMock).toHaveBeenCalledWith(
+      'continue',
+      expect.objectContaining({ mode: 'plan' })
+    );
   });
 
   it('abort clears session mode and kills runner session', async () => {

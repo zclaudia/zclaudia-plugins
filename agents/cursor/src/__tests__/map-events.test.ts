@@ -3,34 +3,30 @@ import { mapCursorEvent } from '../map-events.js';
 
 describe('mapCursorEvent', () => {
   it('maps system init to init with sessionId', () => {
-    const { events } = mapCursorEvent(
-      { type: 'system', subtype: 'init', session_id: 'sess-1', model: 'gpt' },
-      false
-    );
+    const { events } = mapCursorEvent({
+      type: 'system',
+      subtype: 'init',
+      session_id: 'sess-1',
+      model: 'gpt',
+    });
     expect(events).toEqual([expect.objectContaining({ type: 'init', sessionId: 'sess-1' })]);
   });
 
   it('maps assistant text blocks', () => {
-    const { events } = mapCursorEvent(
-      {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'hi' }] },
-      },
-      false
-    );
+    const { events } = mapCursorEvent({
+      type: 'assistant',
+      message: { content: [{ type: 'text', text: 'hi' }] },
+    });
     expect(events).toEqual([{ type: 'assistant', content: 'hi' }]);
   });
 
   it('tags createPlan as plan_proposal on tool_use', () => {
-    const { events } = mapCursorEvent(
-      {
-        type: 'tool_call',
-        subtype: 'started',
-        call_id: 'cp-1',
-        tool_call: { createPlanToolCall: { args: { plan: '# Plan\n\n- step 1' } } },
-      },
-      false
-    );
+    const { events } = mapCursorEvent({
+      type: 'tool_call',
+      subtype: 'started',
+      call_id: 'cp-1',
+      tool_call: { createPlanToolCall: { args: { plan: '# Plan\n\n- step 1' } } },
+    });
     expect(events[0]).toMatchObject({
       type: 'tool_use',
       toolName: 'createPlan',
@@ -39,20 +35,17 @@ describe('mapCursorEvent', () => {
   });
 
   it('emits mode_transition when switchMode to plan completes', () => {
-    const { events } = mapCursorEvent(
-      {
-        type: 'tool_call',
-        subtype: 'completed',
-        call_id: 'sm-1',
-        tool_call: {
-          switchModeToolCall: {
-            args: { targetModeId: 'plan' },
-            result: { success: { message: 'switched' } },
-          },
+    const { events } = mapCursorEvent({
+      type: 'tool_call',
+      subtype: 'completed',
+      call_id: 'sm-1',
+      tool_call: {
+        switchModeToolCall: {
+          args: { targetModeId: 'plan' },
+          result: { success: { message: 'switched' } },
         },
       },
-      false
-    );
+    });
     expect(events.some(e => e.type === 'mode_transition')).toBe(true);
     expect(events.find(e => e.type === 'mode_transition')?.modeTransition).toMatchObject({
       mode: 'plan',
@@ -62,25 +55,22 @@ describe('mapCursorEvent', () => {
   });
 
   it('maps result errors to error events', () => {
-    const { events } = mapCursorEvent({ type: 'result', subtype: 'error', result: 'boom' }, false);
+    const { events } = mapCursorEvent({ type: 'result', subtype: 'error', result: 'boom' });
     expect(events[0]).toMatchObject({ type: 'error', error: 'boom' });
   });
 
   describe('tool call extraction', () => {
     it('extracts editToolCall with file change effect', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'started',
-          call_id: 'call-1',
-          tool_call: {
-            editToolCall: {
-              args: { file: '/path/to/file.ts', content: 'new content' },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'started',
+        call_id: 'call-1',
+        tool_call: {
+          editToolCall: {
+            args: { file: '/path/to/file.ts', content: 'new content' },
           },
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'tool_use',
         toolName: 'Edit',
@@ -93,19 +83,16 @@ describe('mapCursorEvent', () => {
     });
 
     it('extracts editToolCall file change effect from target_file arg', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'started',
-          call_id: 'call-target-file',
-          tool_call: {
-            editToolCall: {
-              args: { target_file: '/repo/src/lib.ts', content: 'updated' },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'started',
+        call_id: 'call-target-file',
+        tool_call: {
+          editToolCall: {
+            args: { target_file: '/repo/src/lib.ts', content: 'updated' },
           },
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'tool_use',
         toolName: 'Edit',
@@ -117,19 +104,16 @@ describe('mapCursorEvent', () => {
     });
 
     it('extracts shellToolCall with shell effect', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'started',
-          call_id: 'call-2',
-          tool_call: {
-            shellToolCall: {
-              args: { command: 'ls -la' },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'started',
+        call_id: 'call-2',
+        tool_call: {
+          shellToolCall: {
+            args: { command: 'ls -la' },
           },
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'tool_use',
         toolName: 'Bash',
@@ -139,19 +123,16 @@ describe('mapCursorEvent', () => {
     });
 
     it('extracts readToolCall', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'started',
-          call_id: 'call-3',
-          tool_call: {
-            readToolCall: {
-              args: { file: '/file.ts' },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'started',
+        call_id: 'call-3',
+        tool_call: {
+          readToolCall: {
+            args: { file: '/file.ts' },
           },
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'tool_use',
         toolName: 'Read',
@@ -162,25 +143,22 @@ describe('mapCursorEvent', () => {
 
   describe('tool results', () => {
     it('extracts success result with stdout', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'completed',
-          call_id: 'call-3',
-          tool_call: {
-            shellToolCall: {
-              args: { command: 'echo test' },
-              result: {
-                success: {
-                  stdout: 'test\n',
-                  exitCode: 0,
-                },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'completed',
+        call_id: 'call-3',
+        tool_call: {
+          shellToolCall: {
+            args: { command: 'echo test' },
+            result: {
+              success: {
+                stdout: 'test\n',
+                exitCode: 0,
               },
             },
           },
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'tool_result',
         toolResult: 'test\n',
@@ -188,72 +166,63 @@ describe('mapCursorEvent', () => {
     });
 
     it('extracts rejected result', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'completed',
-          call_id: 'call-4',
-          tool_call: {
-            shellToolCall: {
-              args: { command: 'rm -rf /' },
-              result: {
-                rejected: {
-                  reason: 'Dangerous command',
-                },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'completed',
+        call_id: 'call-4',
+        tool_call: {
+          shellToolCall: {
+            args: { command: 'rm -rf /' },
+            result: {
+              rejected: {
+                reason: 'Dangerous command',
               },
             },
           },
         },
-        false
-      );
+      });
       expect(events[0].toolResult).toContain('Rejected');
       expect(events[0].toolResult).toContain('Dangerous command');
     });
 
     it('extracts error result', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'completed',
-          call_id: 'call-5',
-          tool_call: {
-            readToolCall: {
-              args: { file: '/nonexistent' },
-              result: {
-                error: 'File not found',
-              },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'completed',
+        call_id: 'call-5',
+        tool_call: {
+          readToolCall: {
+            args: { file: '/nonexistent' },
+            result: {
+              error: 'File not found',
             },
           },
         },
-        false
-      );
+      });
       expect(events[0].toolResult).toContain('File not found');
     });
 
     it('maps editToolCall completed diffString into file change effect', () => {
       const diffString = '--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new';
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'completed',
-          call_id: 'call-edit-completed',
-          tool_call: {
-            editToolCall: {
-              args: { path: '/repo/src/app.ts' },
-              result: {
-                success: {
-                  path: '/repo/src/app.ts',
-                  linesAdded: 1,
-                  linesRemoved: 1,
-                  diffString,
-                  message: 'The file /repo/src/app.ts has been updated.',
-                },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'completed',
+        call_id: 'call-edit-completed',
+        tool_call: {
+          editToolCall: {
+            args: { path: '/repo/src/app.ts' },
+            result: {
+              success: {
+                path: '/repo/src/app.ts',
+                linesAdded: 1,
+                linesRemoved: 1,
+                diffString,
+                message: 'The file /repo/src/app.ts has been updated.',
               },
             },
           },
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'tool_result',
         toolResult: 'The file /repo/src/app.ts has been updated.',
@@ -267,20 +236,17 @@ describe('mapCursorEvent', () => {
 
   describe('plan-mode tools', () => {
     it('switchMode(targetModeId=plan) tags as plan_enter and emits enter transition', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'completed',
-          call_id: 'sm-1',
-          tool_call: {
-            switchModeToolCall: {
-              args: { targetModeId: 'plan' },
-              result: { success: { message: 'switched' } },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'completed',
+        call_id: 'sm-1',
+        tool_call: {
+          switchModeToolCall: {
+            args: { targetModeId: 'plan' },
+            result: { success: { message: 'switched' } },
           },
         },
-        false
-      );
+      });
 
       const transition = events.find(e => e.type === 'mode_transition');
       expect(transition).toBeDefined();
@@ -292,20 +258,17 @@ describe('mapCursorEvent', () => {
     });
 
     it('switchMode(targetModeId=agent) tags as plan_exit and emits exit transition', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'completed',
-          call_id: 'sm-2',
-          tool_call: {
-            switchModeToolCall: {
-              args: { targetModeId: 'agent' },
-              result: { success: { message: 'switched' } },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'completed',
+        call_id: 'sm-2',
+        tool_call: {
+          switchModeToolCall: {
+            args: { targetModeId: 'agent' },
+            result: { success: { message: 'switched' } },
           },
         },
-        false
-      );
+      });
 
       const transition = events.find(e => e.type === 'mode_transition');
       expect(transition?.modeTransition).toMatchObject({
@@ -315,19 +278,16 @@ describe('mapCursorEvent', () => {
     });
 
     it('createPlan tags as plan_proposal and does not emit mode_transition', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'tool_call',
-          subtype: 'started',
-          call_id: 'cp-1',
-          tool_call: {
-            createPlanToolCall: {
-              args: { plan: '# Plan\n\n- step 1' },
-            },
+      const { events } = mapCursorEvent({
+        type: 'tool_call',
+        subtype: 'started',
+        call_id: 'cp-1',
+        tool_call: {
+          createPlanToolCall: {
+            args: { plan: '# Plan\n\n- step 1' },
           },
         },
-        false
-      );
+      });
 
       const toolUse = events.find(e => e.type === 'tool_use');
       expect(toolUse?.toolName).toBe('createPlan');
@@ -338,75 +298,52 @@ describe('mapCursorEvent', () => {
     });
   });
 
-  describe('thinking blocks', () => {
-    it('opens think block and sets inThinkBlock to true', () => {
-      const { events, inThinkBlock } = mapCursorEvent(
-        { type: 'thinking', subtype: 'delta', text: 'Let me think...' },
-        false
-      );
-      expect(events[0]).toMatchObject({
-        type: 'assistant',
-        content: '<think>Let me think...',
+  describe('thinking', () => {
+    it('maps a thinking delta to thinking_delta, not assistant text', () => {
+      const { events } = mapCursorEvent({
+        type: 'thinking',
+        subtype: 'delta',
+        text: 'Let me think...',
       });
-      expect(inThinkBlock).toBe(true);
+      expect(events).toEqual([{ type: 'thinking_delta', thinkingContent: 'Let me think...' }]);
     });
 
-    it('continues think block when already open', () => {
-      const { events, inThinkBlock } = mapCursorEvent(
-        { type: 'thinking', subtype: 'delta', text: ' more thinking' },
-        true
+    it('keeps reasoning out of the assistant content stream entirely', () => {
+      const deltas = ['Let me think...', ' more thinking'].flatMap(
+        text => mapCursorEvent({ type: 'thinking', subtype: 'delta', text }).events
       );
-      expect(events[0]).toMatchObject({
-        type: 'assistant',
-        content: ' more thinking',
-      });
-      expect(inThinkBlock).toBe(true);
+      expect(deltas.every(event => event.type === 'thinking_delta')).toBe(true);
+      // No literal markers to be parsed back out downstream.
+      expect(JSON.stringify(deltas)).not.toContain('think>');
     });
 
-    it('closes think block on completed', () => {
-      const { events, inThinkBlock } = mapCursorEvent(
-        { type: 'thinking', subtype: 'completed' },
-        true
-      );
-      expect(events[0]).toMatchObject({
-        type: 'assistant',
-        content: '</think>',
-      });
-      expect(inThinkBlock).toBe(false);
+    it('emits nothing on completed — there is no open span to close', () => {
+      expect(mapCursorEvent({ type: 'thinking', subtype: 'completed' }).events).toEqual([]);
     });
 
-    it('closes think block when assistant event arrives during thinking', () => {
-      const { events, inThinkBlock } = mapCursorEvent(
-        {
-          type: 'assistant',
-          message: { content: [{ type: 'text', text: 'answer' }] },
-        },
-        true
-      );
-      expect(events[0]).toMatchObject({
+    it('ignores a delta with no text', () => {
+      expect(mapCursorEvent({ type: 'thinking', subtype: 'delta', text: '' }).events).toEqual([]);
+    });
+
+    it('passes an assistant message through untouched after thinking', () => {
+      mapCursorEvent({ type: 'thinking', subtype: 'delta', text: 'reasoning' });
+      const { events } = mapCursorEvent({
         type: 'assistant',
-        content: '</think>',
+        message: { content: [{ type: 'text', text: 'answer' }] },
       });
-      expect(events[1]).toMatchObject({
-        type: 'assistant',
-        content: 'answer',
-      });
-      expect(inThinkBlock).toBe(false);
+      expect(events).toEqual([{ type: 'assistant', content: 'answer' }]);
     });
   });
 
   describe('result events', () => {
     it('maps successful result with usage', () => {
-      const { events } = mapCursorEvent(
-        {
-          type: 'result',
-          usage: {
-            inputTokens: 100,
-            outputTokens: 50,
-          },
+      const { events } = mapCursorEvent({
+        type: 'result',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
         },
-        false
-      );
+      });
       expect(events[0]).toMatchObject({
         type: 'result',
         isComplete: true,
@@ -421,10 +358,11 @@ describe('mapCursorEvent', () => {
     });
 
     it('maps error result', () => {
-      const { events } = mapCursorEvent(
-        { type: 'result', subtype: 'error', result: 'Something went wrong' },
-        false
-      );
+      const { events } = mapCursorEvent({
+        type: 'result',
+        subtype: 'error',
+        result: 'Something went wrong',
+      });
       expect(events[0]).toMatchObject({
         type: 'error',
         error: 'Something went wrong',
@@ -432,10 +370,11 @@ describe('mapCursorEvent', () => {
     });
 
     it('maps result with is_error flag', () => {
-      const { events } = mapCursorEvent(
-        { type: 'result', is_error: true, result: 'Error occurred' },
-        false
-      );
+      const { events } = mapCursorEvent({
+        type: 'result',
+        is_error: true,
+        result: 'Error occurred',
+      });
       expect(events[0]).toMatchObject({
         type: 'error',
         error: 'Error occurred',

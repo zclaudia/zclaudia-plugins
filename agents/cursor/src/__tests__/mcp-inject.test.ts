@@ -23,7 +23,11 @@ describe('injectCursorMcpBridge', () => {
       name: 'claudia-plugins',
       config: { command: 'node', args: ['bridge.js'] },
     });
-    expect(result).toMatchObject({ ok: true, injected: true });
+    expect(result).toMatchObject({
+      ok: true,
+      injected: true,
+      injectedNames: ['claudia-plugins'],
+    });
     const raw = JSON.parse(readFileSync(path.join(cwd, '.cursor', 'mcp.json'), 'utf8'));
     expect(raw.mcpServers['claudia-plugins']).toEqual({
       command: 'node',
@@ -56,10 +60,11 @@ describe('injectCursorMcpBridge', () => {
         mcpServers: { 'claudia-plugins': { command: 'user-bridge' } },
       })
     );
-    injectCursorMcpBridge(cwd, {
+    const result = injectCursorMcpBridge(cwd, {
       name: 'claudia-plugins',
       config: { command: 'node', args: ['bridge.js'] },
     });
+    expect(result).toMatchObject({ ok: true, injected: false, injectedNames: [] });
     const raw = JSON.parse(readFileSync(path.join(cwd, '.cursor', 'mcp.json'), 'utf8'));
     expect(raw.mcpServers['claudia-plugins']).toEqual({ command: 'user-bridge' });
   });

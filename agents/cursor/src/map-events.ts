@@ -102,17 +102,12 @@ function extractToolCall(toolCallObj: Record<string, unknown>): ToolCallInfo | n
 
 export interface MapCursorEventResult {
   events: ProviderRuntimeEvent[];
-  inThinkBlock: boolean;
 }
 
-export function mapCursorEvent(
-  event: Record<string, unknown>,
-  inThinkBlock: boolean
-): MapCursorEventResult {
+export function mapCursorEvent(event: Record<string, unknown>): MapCursorEventResult {
   const results: ProviderRuntimeEvent[] = [];
   const evType = event.type as string;
   const evSubtype = event.subtype as string | undefined;
-  let newThinkBlock = inThinkBlock;
 
   switch (evType) {
     case 'system': {
@@ -136,27 +131,19 @@ export function mapCursorEvent(
       break;
 
     case 'thinking': {
+      // cursor-agent already separates reasoning from the answer, so forward it
+      // as thinking_delta rather than folding it into the assistant text: a
+      // consumer that inlined `<think>` markers would have to parse them back
+      // out, and any that failed to would render the tags as literal prose.
+      // `completed` needs no event — there is no span left open to close.
       if (evSubtype === 'delta') {
         const text = event.text as string;
-        if (!inThinkBlock) {
-          results.push({ type: 'assistant', content: '<think>' + text });
-          newThinkBlock = true;
-        } else {
-          results.push({ type: 'assistant', content: text });
-        }
-      } else if (evSubtype === 'completed' && inThinkBlock) {
-        results.push({ type: 'assistant', content: '</think>' });
-        newThinkBlock = false;
+        if (text) results.push({ type: 'thinking_delta', thinkingContent: text });
       }
       break;
     }
 
     case 'assistant': {
-      // Close any open think block first
-      if (inThinkBlock) {
-        results.push({ type: 'assistant', content: '</think>' });
-        newThinkBlock = false;
-      }
       const message = event.message as
         | {
             content?: Array<{ type: string; text?: string }>;
@@ -250,5 +237,5 @@ export function mapCursorEvent(
     // Unhandled event type — skip silently
   }
 
-  return { events: results, inThinkBlock: newThinkBlock };
+  return { events: results };
 }

@@ -1,5 +1,9 @@
+import { execFile } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import path from 'path';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 export interface CursorMcpBridge {
   name: string;
@@ -7,7 +11,8 @@ export interface CursorMcpBridge {
 }
 
 export type InjectResult =
-  { ok: true; cleanup: () => void; injected: boolean } | { ok: false; reason: string };
+  | { ok: true; cleanup: () => void; injected: boolean; injectedNames: string[] }
+  | { ok: false; reason: string };
 
 export function injectCursorMcpBridge(cwd: string, bridge: CursorMcpBridge): InjectResult {
   const mcpJsonPath = path.join(cwd, '.cursor', 'mcp.json');
@@ -28,7 +33,7 @@ export function injectCursorMcpBridge(cwd: string, bridge: CursorMcpBridge): Inj
   };
   if (mcpServers[bridge.name]) {
     // User (or prior) entry wins.
-    return { ok: true, cleanup: () => {}, injected: false };
+    return { ok: true, cleanup: () => {}, injected: false, injectedNames: [] };
   }
   mcpServers[bridge.name] = bridge.config;
   config.mcpServers = mcpServers;
@@ -40,6 +45,7 @@ export function injectCursorMcpBridge(cwd: string, bridge: CursorMcpBridge): Inj
     return {
       ok: true,
       injected: true,
+      injectedNames: [bridge.name],
       cleanup: () => {
         cleanupInjectedBridge({
           bridge,
@@ -90,4 +96,34 @@ function cleanupInjectedBridge(input: {
       `[Cursor SDK] Failed to clean up MCP bridge: ${error instanceof Error ? error.message : String(error)}`
     );
   }
+}
+
+/**
+ * Approve injected servers in cursor-agent's per-project approved list.
+ * Servers in `.cursor/mcp.json` are not loaded until approved, and the
+ * approval is keyed on the server config, so a changed bridge URL (the
+ * daemon mints a new capability secret per lifetime) must be re-approved.
+ * Only the entries this run injected are approved — a user's own servers
+ * keep their existing approval state. Failures are non-fatal: the run
+ * proceeds without the bridge tools, matching today's unapproved behavior.
+ */
+export async function approveCursorMcpServers(input: {
+  binary: string;
+  cwd: string;
+  names: string[];
+}): Promise<void> {
+  await Promise.all(
+    input.names.map(async name => {
+      try {
+        await execFileAsync(input.binary, ['mcp', 'enable', name], {
+          cwd: input.cwd,
+          timeout: 15_000,
+        });
+      } catch (error) {
+        console.error(
+          `[Cursor SDK] Failed to approve MCP server ${name}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    })
+  );
 }
